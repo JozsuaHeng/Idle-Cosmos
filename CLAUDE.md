@@ -1,9 +1,13 @@
 # Token Universe
 
-A local web app that turns Claude Code token usage into a growing pixel
-universe. Each Claude Code session is one universe: the session start is the
-big bang, and every token Claude consumes adds "cosmic energy" that reveals
-stars and, at milestones, planets, comets, nebulae, galaxies and a black hole.
+A local web app that turns Claude Code token usage into ONE slowly-built
+pixel model of the real known universe. All sessions' tokens pool into
+"cosmic energy" (~40,000 energy = 1 block, `ENERGY_PER_BLOCK` in app.js);
+blocks assemble the Sun and planets core-outward with real geological
+layers (Earth: inner core → outer core → mantles → crust → surface →
+atmosphere), then belts, named nearby stars, and the Milky Way field.
+The world is pannable/zoomable (drag + wheel + bottom-right control,
+`?goto=Earth&z=6` deep links).
 
 ## How it works
 

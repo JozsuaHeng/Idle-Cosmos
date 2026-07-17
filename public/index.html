@@ -12,27 +12,31 @@
 
 <aside id="sidebar">
   <header>
-    <h1>🌌 Token Universe</h1>
-    <p class="tagline">Every token becomes a block of light.</p>
+    <h1>🌌 The Known Universe</h1>
+    <p class="tagline">One universe, built from every token. Drag to pan, scroll to zoom.</p>
   </header>
-  <label class="follow">
-    <input type="checkbox" id="followLive" checked>
-    Follow live session
-  </label>
-  <ul id="sessionList"></ul>
+  <h2>Locations</h2>
+  <ul id="locationList"></ul>
 </aside>
-<button id="sidebarToggle" title="Toggle galaxy list">☰</button>
+<button id="sidebarToggle" title="Toggle locations">☰</button>
 
 <div id="hud">
-  <div id="universeName">…</div>
-  <div id="universeAge"></div>
-  <div class="stat"><span id="energyVal">0</span> cosmic energy</div>
-  <div class="stat dim"><span id="tokenVal">0</span> tokens · <span id="promptVal">0</span> prompts</div>
+  <div id="universeName">The Known Universe</div>
+  <div id="blocksVal"></div>
+  <div class="stat">this session&ensp;<span id="sessTok">0</span> tokens · <span id="sessEnergy">0</span> energy</div>
+  <div class="stat total">all time&ensp;<span id="totTok">0</span> tokens · <span id="totEnergy">0</span> energy</div>
 </div>
 
 <div id="milestoneBar">
   <div id="milestoneLabel"></div>
   <div class="track"><div id="milestoneFill"></div></div>
+</div>
+
+<div id="zoomCtl">
+  <button id="zoomIn" title="Zoom in">+</button>
+  <div id="zoomPct">100%</div>
+  <button id="zoomOut" title="Zoom out">−</button>
+  <button id="zoomReset" title="Reset view">⌂</button>
 </div>
 
 <div id="toast"></div>

@@ -1,33 +1,27 @@
 /**
- * Token Universe — front-end (pixel edition).
+ * Token Universe — The Known Universe edition.
  *
- * The screen starts as an empty midnight void. Every ~400 cosmic energy
- * buys ONE block. A builder spark flies to the next block's spot and
- * places it; blocks accumulate into pixel-art structures (stars, a sun,
- * planets, a comet, a nebula, a galaxy…) one after another.
+ * ONE universe, fed by the combined token usage of EVERY Claude Code
+ * session. It reconstructs our actual cosmic neighbourhood, slowly:
  *
- * Determinism: the session id seeds every random choice, so the same
- * session always rebuilds the exact same universe — energy only decides
- * how many blocks exist yet.
+ *   the Sun (core → radiative zone → convective zone → photosphere)
+ *   → Earth (inner core → outer core → mantles → crust → surface → air)
+ *   → the Moon → Mercury → Venus → Mars → the asteroid belt
+ *   → Jupiter → Saturn (+ rings) → Uranus → Neptune → the Kuiper belt
+ *   → named nearby stars → the Milky Way's galactic field.
  *
- * Performance: placed blocks live on a small offscreen canvas (1 canvas
- * pixel = 1 block) scaled up with smoothing off. Per frame we only
- * animate the spark, a few twinkling blocks, and soft structure glows.
+ * Planets are built from the core outward, so while under construction
+ * you see a geological cutaway; the surface wraps over it at the end.
+ *
+ * ~40,000 cosmic energy = 1 block, so building is deliberately slow.
+ * The world is pannable (drag) and zoomable (wheel / bottom-right
+ * control). Everything is deterministic: same layout every time.
  */
 'use strict';
 
 // ---------------------------------------------------------------------------
-// Seeded randomness
+// Deterministic randomness (fixed seed — it's OUR universe, always the same)
 // ---------------------------------------------------------------------------
-
-function hashSeed(str) {
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -39,290 +33,364 @@ function mulberry32(seed) {
   };
 }
 
-const ADJ = ['Crimson', 'Umbral', 'Gilded', 'Whispering', 'Iridescent', 'Sleeping',
-  'Fractal', 'Velvet', 'Wandering', 'Luminous', 'Forgotten', 'Electric',
-  'Sapphire', 'Molten', 'Quiet', 'Restless'];
-const NOUN = ['Whale', 'Lantern', 'Serpent', 'Anvil', 'Orchid', 'Compass',
-  'Phoenix', 'Cathedral', 'Fox', 'Mirror', 'Pilgrim', 'Clockwork',
-  'Tide', 'Ember', 'Archive', 'Dragonfly'];
-const KIND = ['Expanse', 'Nebula', 'Reach', 'Verge', 'Drift', 'Halo', 'Deep', 'Veil'];
-
-function universeName(id) {
-  const r = mulberry32(hashSeed('name:' + id));
-  return `The ${ADJ[(r() * ADJ.length) | 0]} ${NOUN[(r() * NOUN.length) | 0]} ${KIND[(r() * KIND.length) | 0]}`;
-}
-
 // ---------------------------------------------------------------------------
-// Palette — pale midnight / turquoise, luminescent but subtle
+// Tuning
 // ---------------------------------------------------------------------------
 
-const PAL = {
-  sparkBright: '#e9fbf7',
-  starPale: ['#cfeee9', '#b5e6de', '#9fdcd6', '#d8f2ec', '#8fcfd1'],
-  starDim: ['#5f9aa3', '#4d838f', '#6fb3b8'],
-  sunCore: '#eafcf6',
-  sunBody: ['#bdeee2', '#9fe3d4', '#8ad6c8'],
-  sunEdge: '#5fb3ac',
-  planet: [
-    ['#a8dfe0', '#6fb5bd', '#3f7c8a'],   // light, mid, shadow
-    ['#b9e6d3', '#7cc2ab', '#47897e'],
-    ['#9fd0e8', '#6a9fc4', '#3e6a8f'],
-    ['#c4ead9', '#8fccba', '#5a948b'],
-  ],
-  ring: '#d3f0e8',
-  moon: ['#d9e8e6', '#a9bfbe'],
-  cometHead: '#eafbf6',
-  cometTail: ['#a9e4da', '#74b8b4', '#4d8a8c', '#356467'],
-  nebula: ['#1d4a50', '#215a5e', '#2a6b6d', '#183c44', '#12303a'],
-  galaxyCore: '#e2f6ef',
-  galaxyArm: ['#8fd6cb', '#5da8a6', '#3d7a80', '#2a5a63'],
-  glow: 'rgba(140, 226, 210, 0.05)',
-};
+const ENERGY_PER_BLOCK = 40_000;  // slow, deliberate growth
+const BASE = 3;                   // css px per block at zoom 1
+const WB = 2400, HB = 1400;       // world size in blocks
+const SUN = { x: 500, y: 700 };   // world position of the Sun
+const FIELD_CAP = 30_000;         // max Milky Way field blocks
 
 // ---------------------------------------------------------------------------
-// Pixel-art structure generators — each returns a list of blocks
-// ({dx, dy, color, alpha, twinkle}) already sorted in build order.
+// Pixel-art builders
 // ---------------------------------------------------------------------------
 
-function pick(r, arr) { return arr[(r() * arr.length) | 0]; }
-
-function genSpark(r) {
-  return [{ dx: 0, dy: 0, color: PAL.sparkBright, twinkle: true }];
-}
-
-function genStar(r) {
-  const c = pick(r, PAL.starPale);
-  const dim = pick(r, PAL.starDim);
-  return [
-    { dx: 0, dy: 0, color: c, twinkle: true },
-    { dx: -1, dy: 0, color: dim }, { dx: 1, dy: 0, color: dim },
-    { dx: 0, dy: -1, color: dim }, { dx: 0, dy: 1, color: dim },
-  ];
-}
-
-function genCluster(r) {
-  const blocks = [{ dx: 0, dy: 0, color: pick(r, PAL.starPale), twinkle: true }];
-  const n = 6 + (r() * 4 | 0);
-  for (let i = 0; i < n; i++) {
-    blocks.push({
-      dx: Math.round((r() - 0.5) * 7), dy: Math.round((r() - 0.5) * 5),
-      color: r() < 0.4 ? pick(r, PAL.starPale) : pick(r, PAL.starDim),
-      twinkle: r() < 0.35,
-    });
-  }
-  return blocks;
-}
-
-function discBlocks(radius, colorFn) {
-  const blocks = [];
-  for (let dy = -radius; dy <= radius; dy++) {
-    for (let dx = -radius; dx <= radius; dx++) {
+function discCells(R) {
+  const cells = [];
+  for (let dy = -R; dy <= R; dy++) {
+    for (let dx = -R; dx <= R; dx++) {
       const d = Math.hypot(dx, dy);
-      if (d <= radius + 0.25) blocks.push({ dx, dy, color: colorFn(dx, dy, d) });
+      if (d <= R + 0.3) cells.push({ dx, dy, d });
     }
   }
-  // Build from the centre outward — looks like accretion.
-  blocks.sort((a, b) => Math.hypot(a.dx, a.dy) - Math.hypot(b.dx, b.dy));
-  return blocks;
+  return cells;
 }
 
-function genSun(r) {
-  const R = 5 + (r() * 2 | 0);
-  const body = discBlocks(R, (dx, dy, d) => {
-    if (d < R * 0.35) return PAL.sunCore;
-    if (d < R * 0.8) return PAL.sunBody[(dx + dy & 1) ? 0 : 1];
-    return (dx + dy & 1) ? PAL.sunBody[2] : PAL.sunEdge;
-  });
-  // Rays: short pixel spikes on the four axes and diagonals.
-  const rays = [];
-  for (const [ux, uy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
-    const len = ux && uy ? 1 : 2;
-    for (let k = 1; k <= len; k++) {
-      rays.push({ dx: ux * (R + k + 1), dy: uy * (R + k + 1), color: PAL.sunEdge, alpha: 0.7 - k * 0.25, twinkle: true });
+function dither(rng, colors) {
+  return colors[Math.min(colors.length - 1, (rng() * colors.length) | 0)];
+}
+
+/**
+ * A body built as concentric geological shells, then a surface that wraps
+ * over the whole face, then (optionally) a thin atmosphere.
+ * shells: [{frac, name, colors}] ordered inside-out; fracs of R.
+ */
+function makeBody(rng, cfg) {
+  const { name, cx, cy, R, shells, surface, surfaceName, sweep, atmosphere } = cfg;
+  const cells = discCells(R);
+  const layers = [];
+
+  let prevFrac = 0;
+  for (const sh of shells) {
+    const blocks = cells
+      .filter((c) => c.d > prevFrac * R - 0.35 && c.d <= sh.frac * R + (sh.frac === 1 ? 0.3 : 0))
+      .sort((a, b) => a.d - b.d || a.dx - b.dx)
+      .map((c) => ({ dx: c.dx, dy: c.dy, color: dither(rng, sh.colors) }));
+    if (blocks.length) layers.push({ name: sh.name, blocks });
+    prevFrac = sh.frac;
+  }
+
+  if (surface) {
+    const blocks = cells
+      .slice()
+      .sort(sweep === 'bands'
+        ? (a, b) => a.dy - b.dy || a.dx - b.dx     // gas giants: band by band
+        : (a, b) => a.dx - b.dx || a.dy - b.dy)    // rocky: sweep across the face
+      .map((c) => {
+        const col = surface(c.dx, c.dy, c.d, R, rng);
+        return col ? { dx: c.dx, dy: c.dy, color: col } : null;
+      })
+      .filter(Boolean);
+    layers.push({ name: surfaceName || 'the surface', blocks });
+  }
+
+  if (atmosphere) {
+    const blocks = [];
+    for (let dy = -R - 2; dy <= R + 2; dy++) {
+      for (let dx = -R - 2; dx <= R + 2; dx++) {
+        const d = Math.hypot(dx, dy);
+        if (d > R + 0.3 && d <= R + 1.7) {
+          blocks.push({ dx, dy, color: atmosphere, alpha: 0.35 });
+        }
+      }
     }
+    layers.push({ name: 'the atmosphere', blocks });
   }
-  return body.concat(rays);
+
+  return { name, cx, cy, R, kind: 'body', layers };
 }
 
-function genPlanet(r, radius) {
-  const R = radius || 3 + (r() * 2 | 0);
-  const tone = pick(r, PAL.planet);
-  const bandY = Math.round((r() - 0.5) * R);
-  return discBlocks(R, (dx, dy, d) => {
-    const lit = (dx - dy) / (R * 1.4); // light from upper-left
-    if (dy === bandY && Math.abs(dx) < R) return tone[1];
-    if (lit > 0.25) return tone[0];
-    if (lit < -0.35) return tone[2];
-    return (dx + dy & 1) ? tone[1] : tone[0];
-  });
-}
-
-function genRinged(r) {
-  const R = 3 + (r() * 2 | 0);
-  const body = genPlanet(r, R);
-  const ring = [];
-  for (let dx = -(R + 3); dx <= R + 3; dx++) {
-    const dy = Math.round(dx * 0.22);
-    if (Math.hypot(dx, dy) <= R + 0.3) continue; // behind the planet body
-    ring.push({ dx, dy, color: PAL.ring, alpha: Math.abs(dx) > R + 2 ? 0.5 : 0.85 });
-  }
-  return body.concat(ring);
-}
-
-function genMoon(r) {
-  return [
-    { dx: 0, dy: 0, color: PAL.moon[0] },
-    { dx: 1, dy: 0, color: PAL.moon[1] },
-    { dx: 0, dy: 1, color: PAL.moon[1] },
-    { dx: 1, dy: 1, color: PAL.moon[1] },
-    { dx: -1, dy: 0, color: PAL.moon[1], alpha: 0.6 },
-  ];
-}
-
-function genComet(r) {
-  const dir = r() < 0.5 ? 1 : -1;
-  const blocks = [
-    { dx: 0, dy: 0, color: PAL.cometHead, twinkle: true },
-    { dx: dir, dy: 0, color: PAL.cometTail[0] },
-    { dx: 0, dy: -1, color: PAL.cometTail[0] },
-  ];
-  for (let k = 1; k <= 9; k++) {
-    blocks.push({
-      dx: -dir * k, dy: Math.round(k * 0.5),
-      color: PAL.cometTail[Math.min(3, k >> 1)],
-      alpha: Math.max(0.25, 1 - k * 0.09),
-    });
-  }
-  return blocks;
-}
-
-function genNebula(r) {
+function makeRingScatter(rng, name, layerName, dist, spread, count, colors, alphaLo) {
   const blocks = [];
-  const n = 110 + (r() * 50 | 0);
-  for (let i = 0; i < n; i++) {
-    // Gaussian-ish scatter: sum of two uniforms.
-    const dx = Math.round((r() + r() - 1) * 11);
-    const dy = Math.round((r() + r() - 1) * 7);
+  for (let i = 0; i < count; i++) {
+    const ang = rng() * Math.PI * 2;
+    const rad = dist + (rng() + rng() - 1) * spread;
     blocks.push({
-      dx, dy,
-      color: pick(r, PAL.nebula),
-      alpha: 0.5 + r() * 0.4,
+      dx: Math.round(Math.cos(ang) * rad),
+      dy: Math.round(Math.sin(ang) * rad),
+      color: dither(rng, colors),
+      alpha: alphaLo + rng() * 0.4,
+      ang,
     });
   }
-  // A few pale glints inside the cloud.
-  for (let i = 0; i < 5; i++) {
-    blocks.push({
-      dx: Math.round((r() - 0.5) * 12), dy: Math.round((r() - 0.5) * 8),
-      color: pick(r, PAL.starPale), alpha: 0.9, twinkle: true,
-    });
-  }
-  return blocks;
+  blocks.sort((a, b) => a.ang - b.ang); // builds sweeping around the orbit
+  return { name, cx: SUN.x, cy: SUN.y, R: dist + spread, kind: 'ring', layers: [{ name: layerName, blocks }] };
 }
 
-function genGalaxy(r) {
-  const blocks = [{ dx: 0, dy: 0, color: PAL.galaxyCore, twinkle: true }];
-  const spin = r() < 0.5 ? 1 : -1;
-  for (let arm = 0; arm < 2; arm++) {
-    for (let t = 0.8; t < 6.8; t += 0.16) {
-      const ang = spin * t * 1.15 + arm * Math.PI;
-      const rad = t * 1.35;
-      blocks.push({
-        dx: Math.round(Math.cos(ang) * rad),
-        dy: Math.round(Math.sin(ang) * rad * 0.62),
-        color: PAL.galaxyArm[Math.min(3, (t / 1.8) | 0)],
-        alpha: Math.max(0.3, 1 - t * 0.12),
-        twinkle: r() < 0.06,
+function makeStar(rng, name, cx, cy, size, color, dimColor) {
+  const blocks = [{ dx: 0, dy: 0, color, twinkle: true }];
+  if (size > 1) {
+    blocks.push(
+      { dx: -1, dy: 0, color: dimColor }, { dx: 1, dy: 0, color: dimColor },
+      { dx: 0, dy: -1, color: dimColor }, { dx: 0, dy: 1, color: dimColor });
+  }
+  if (size > 2) {
+    blocks.push(
+      { dx: -2, dy: 0, color: dimColor, alpha: 0.5 }, { dx: 2, dy: 0, color: dimColor, alpha: 0.5 },
+      { dx: 0, dy: -2, color: dimColor, alpha: 0.5 }, { dx: 0, dy: 2, color: dimColor, alpha: 0.5 });
+  }
+  return { name, cx, cy, R: size, kind: 'star', layers: [{ name: null, blocks }] };
+}
+
+// ---------------------------------------------------------------------------
+// The Known Universe — structure definitions (built in this order)
+// ---------------------------------------------------------------------------
+
+function planetX(dist) { return SUN.x + dist; }
+
+function buildUniverse() {
+  const rng = mulberry32(0xC05305);
+  const S = [];
+
+  // --- The Sun: real interior structure ---
+  const sun = makeBody(rng, {
+    name: 'the Sun', cx: SUN.x, cy: SUN.y, R: 30,
+    shells: [
+      { frac: 0.25, name: "the Sun's core", colors: ['#fff7e2', '#fdf2d2'] },
+      { frac: 0.55, name: 'the radiative zone', colors: ['#ffe9b4', '#fce2a2'] },
+      { frac: 0.85, name: 'the convective zone', colors: ['#ffd685', '#f8cd78'] },
+      { frac: 1.0, name: 'the photosphere', colors: ['#ffc45e', '#f2b455', '#e8a94f'] },
+    ],
+  });
+  // Corona: faint spikes.
+  const corona = [];
+  for (const [ux, uy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+    const len = ux && uy ? 2 : 4;
+    for (let k = 1; k <= len; k++) {
+      corona.push({ dx: ux * (30 + 1 + k), dy: uy * (30 + 1 + k), color: '#e8a94f', alpha: 0.6 - k * 0.12, twinkle: true });
+    }
+  }
+  sun.layers.push({ name: 'the corona', blocks: corona });
+  S.push(sun);
+
+  // --- Earth first (as requested), with full geological layering ---
+  S.push(makeBody(rng, {
+    name: 'Earth', cx: planetX(160), cy: SUN.y, R: 9,
+    shells: [
+      { frac: 0.19, name: "Earth's inner core", colors: ['#f2ead0', '#ece2c2'] },
+      { frac: 0.35, name: "Earth's outer core", colors: ['#e8b04e', '#dfa444'] },
+      { frac: 0.62, name: 'the lower mantle', colors: ['#c96a3f', '#bd6039'] },
+      { frac: 0.85, name: 'the upper mantle', colors: ['#a45238', '#984b33'] },
+      { frac: 1.0, name: 'the crust', colors: ['#6b4a36', '#5f4230'] },
+    ],
+    surfaceName: 'oceans and continents',
+    surface: (dx, dy, d, R, r) => {
+      if (Math.abs(dy) > R * 0.82) return r() < 0.75 ? '#dfe8ee' : '#c8d8e2';     // polar ice
+      const n = Math.sin(dx * 0.9 + 1.7) + Math.sin(dy * 1.1 + dx * 0.5) + (r() - 0.5);
+      return n > 0.55 ? (r() < 0.85 ? '#4f7d4a' : '#5f8d54') : (r() < 0.9 ? '#2e5f9e' : '#3a6cab');
+    },
+    atmosphere: '#9fc8e8',
+  }));
+
+  S.push(makeBody(rng, {
+    name: 'the Moon', cx: planetX(160) + 15, cy: SUN.y - 9, R: 2,
+    shells: [{ frac: 1.0, name: null, colors: ['#c9c9c4', '#a8a8a2'] }],
+    surfaceName: null,
+    surface: (dx, dy, d, R, r) => (r() < 0.2 ? '#8f8f8a' : null),
+  }));
+
+  // --- Then inward-out: Mercury, Venus, Mars ---
+  S.push(makeBody(rng, {
+    name: 'Mercury', cx: planetX(70), cy: SUN.y, R: 4,
+    shells: [
+      { frac: 0.7, name: "Mercury's iron core", colors: ['#c8b08a', '#bfa67e'] },  // huge core — accurate!
+      { frac: 1.0, name: "Mercury's mantle and crust", colors: ['#8a7d70', '#7d7166'] },
+    ],
+    surfaceName: 'a cratered surface',
+    surface: (dx, dy, d, R, r) => (r() < 0.3 ? '#6f6862' : '#9a938c'),
+  }));
+
+  S.push(makeBody(rng, {
+    name: 'Venus', cx: planetX(110), cy: SUN.y, R: 8,
+    shells: [
+      { frac: 0.5, name: "Venus's core", colors: ['#d8b878', '#cead6c'] },
+      { frac: 0.85, name: "Venus's mantle", colors: ['#b0714a', '#a56843'] },
+      { frac: 1.0, name: "Venus's crust", colors: ['#8a5f45', '#7d553e'] },
+    ],
+    surfaceName: 'thick sulfuric clouds',
+    surface: (dx, dy, d, R, r) => {
+      const band = Math.sin(dy * 0.9 + dx * 0.25);
+      return band > 0 ? (r() < 0.9 ? '#e6d9a8' : '#ded093') : '#d9c48a';
+    },
+  }));
+
+  S.push(makeBody(rng, {
+    name: 'Mars', cx: planetX(215), cy: SUN.y, R: 5,
+    shells: [
+      { frac: 0.45, name: "Mars's core", colors: ['#c89058', '#bd8750'] },
+      { frac: 0.8, name: "Mars's mantle", colors: ['#a05a3a', '#955335'] },
+      { frac: 1.0, name: "Mars's crust", colors: ['#8a4a30', '#7d442c'] },
+    ],
+    surfaceName: 'the red surface',
+    surface: (dx, dy, d, R, r) => {
+      if (Math.abs(dy) > R * 0.8) return '#e8e2da';                                 // polar caps
+      return r() < 0.75 ? '#c1704f' : '#a85a3f';
+    },
+  }));
+
+  // --- Asteroid belt ---
+  S.push(makeRingScatter(rng, 'the asteroid belt', 'the asteroid belt', 270, 12, 480,
+    ['#8a8578', '#6f6b60', '#a09a8c'], 0.35));
+
+  // --- Gas giants ---
+  S.push(makeBody(rng, {
+    name: 'Jupiter', cx: planetX(360), cy: SUN.y, R: 20,
+    shells: [
+      { frac: 0.2, name: "Jupiter's rocky core", colors: ['#d8c8a8', '#cfbf9c'] },
+      { frac: 0.55, name: 'metallic hydrogen', colors: ['#b89a78', '#ae9070'] },
+      { frac: 0.85, name: 'liquid hydrogen', colors: ['#caa98a', '#c09f80'] },
+      { frac: 1.0, name: 'the outer envelope', colors: ['#d4b494', '#cbab8b'] },
+    ],
+    sweep: 'bands',
+    surfaceName: 'banded clouds',
+    surface: (dx, dy, d, R, r) => {
+      // The Great Red Spot, southern hemisphere.
+      if (Math.hypot((dx - 7) / 4.2, (dy - 8) / 2.4) < 1) return r() < 0.85 ? '#c05a3a' : '#b25234';
+      const bands = ['#e8dcc8', '#c9a685', '#dcc9ae', '#b98d6f', '#e2d4bc', '#a8765a'];
+      return dither(r, [bands[(Math.floor(dy / 3.2) % bands.length + bands.length) % bands.length]]);
+    },
+  }));
+
+  const saturn = makeBody(rng, {
+    name: 'Saturn', cx: planetX(470), cy: SUN.y, R: 16,
+    shells: [
+      { frac: 0.25, name: "Saturn's core", colors: ['#d0c0a0', '#c7b795'] },
+      { frac: 0.6, name: 'metallic hydrogen', colors: ['#c0ab8c', '#b7a284'] },
+      { frac: 1.0, name: 'the outer envelope', colors: ['#d9c8a5', '#d0bf9c'] },
+    ],
+    sweep: 'bands',
+    surfaceName: 'pale gold bands',
+    surface: (dx, dy, d, R, r) => {
+      const bands = ['#e8d9b8', '#d9c8a0', '#e2d2ae', '#c8b088'];
+      return bands[(Math.floor(dy / 3.5) % bands.length + bands.length) % bands.length];
+    },
+  });
+  // Saturn's rings, with the Cassini Division gap.
+  const ringBlocks = [];
+  for (let dx = -(16 + 15); dx <= 16 + 15; dx++) {
+    for (let dy = -3; dy <= 3; dy++) {
+      const e = Math.hypot(dx / (16 + 15), dy / 2.6);
+      const inner = Math.hypot(dx / (16 + 5), dy / 1.2);
+      if (e > 1 || inner < 1) continue;
+      if (Math.hypot(dx, dy) <= 16.3) continue;                 // don't overwrite the body
+      const cassini = Math.abs(Math.hypot(dx / (16 + 11), dy / 2.0) - 1) < 0.045;
+      ringBlocks.push({
+        dx, dy,
+        color: cassini ? '#5a5346' : dither(rng, ['#cfc4ae', '#c2b7a0', '#b8ad96']),
+        alpha: cassini ? 0.5 : 0.85,
+        key: Math.abs(dx),
       });
     }
   }
-  blocks.sort((a, b) => Math.hypot(a.dx, a.dy) - Math.hypot(b.dx, b.dy));
-  return blocks;
+  ringBlocks.sort((a, b) => a.key - b.key);
+  saturn.layers.push({ name: "Saturn's rings", blocks: ringBlocks });
+  S.push(saturn);
+
+  S.push(makeBody(rng, {
+    name: 'Uranus', cx: planetX(580), cy: SUN.y, R: 11,
+    shells: [
+      { frac: 0.3, name: "Uranus's rocky core", colors: ['#c8bca8', '#bfb39e'] },
+      { frac: 0.8, name: 'an icy mantle', colors: ['#7ab8c8', '#70afc0'] },
+      { frac: 1.0, name: 'the outer atmosphere', colors: ['#96ccd4', '#8cc4cd'] },
+    ],
+    sweep: 'bands',
+    surfaceName: 'pale cyan haze',
+    surface: (dx, dy, d, R, r) => (r() < 0.9 ? '#a8d8d8' : '#98cccf'),
+  }));
+
+  S.push(makeBody(rng, {
+    name: 'Neptune', cx: planetX(680), cy: SUN.y, R: 11,
+    shells: [
+      { frac: 0.3, name: "Neptune's rocky core", colors: ['#c0b4a0', '#b7ab96'] },
+      { frac: 0.8, name: 'an icy mantle', colors: ['#4a6fb8', '#4468ae'] },
+      { frac: 1.0, name: 'the outer atmosphere', colors: ['#3f66c4', '#3a5fba'] },
+    ],
+    sweep: 'bands',
+    surfaceName: 'deep blue storms',
+    surface: (dx, dy, d, R, r) => {
+      if (dy === -3 && dx > -6 && dx < 2) return '#dfe8f4';     // white storm streak
+      return r() < 0.8 ? '#3f6ad8' : '#2f55b8';
+    },
+  }));
+
+  // --- Kuiper belt + Pluto ---
+  S.push(makeRingScatter(rng, 'the Kuiper belt', 'the Kuiper belt', 780, 28, 620,
+    ['#6f7a8a', '#5a6474', '#8a93a2'], 0.25));
+  S.push(makeBody(rng, {
+    name: 'Pluto', cx: planetX(780), cy: SUN.y - 40, R: 2,
+    shells: [{ frac: 1.0, name: null, colors: ['#c8b8a8', '#baa896'] }],
+    surfaceName: null,
+    surface: (dx, dy, d, R, r) => (dx <= 0 && dy >= 0 && r() < 0.6 ? '#e2d8ca' : null), // heart-ish patch
+  }));
+
+  // --- Named nearby stars, roughly by real distance from us ---
+  const stars = [
+    ['Proxima Centauri', 1500, 1050, 1, '#e8a8a0', '#a86a64'],
+    ['Alpha Centauri', 1560, 1020, 2, '#f2ead2', '#b0a880'],
+    ["Barnard's Star", 1380, 380, 1, '#e0968a', '#9a6258'],
+    ['Sirius', 1700, 850, 3, '#eaf2ff', '#8fa8d8'],
+    ['Epsilon Eridani', 1250, 1180, 1, '#f0c890', '#b08c58'],
+    ['Tau Ceti', 1820, 500, 1, '#f2dca8', '#b09c6a'],
+    ['Vega', 1980, 950, 2, '#dce8ff', '#8098c8'],
+    ['Altair', 2050, 620, 2, '#e8eefc', '#94a4c8'],
+    ['Polaris', 1150, 180, 2, '#f2f0e2', '#a8a488'],
+    ['Betelgeuse', 2200, 380, 3, '#e88a5a', '#a85a38'],
+    ['Rigel', 2250, 1100, 3, '#cfe0ff', '#7890c0'],
+  ];
+  for (const [name, x, y, size, c, dim] of stars) S.push(makeStar(rng, name, x, y, size, c, dim));
+
+  // Cumulative indices.
+  let acc = 0;
+  for (const s of S) {
+    s.start = acc;
+    for (const l of s.layers) { l.start = acc; acc += l.blocks.length; }
+    s.count = acc - s.start;
+  }
+  return { structures: S, fixedTotal: acc };
 }
 
-const GENERATORS = {
-  spark: genSpark, star: genStar, cluster: genCluster, sun: genSun,
-  planet: (r) => genPlanet(r), ringed: genRinged, moon: genMoon,
-  comet: genComet, nebula: genNebula, galaxy: genGalaxy,
-};
+// --- The Milky Way field: lazily generated, effectively endless ---
 
-// What forms, in order. `name` = announced as a milestone when completed.
-const SCHEDULE = [
-  { type: 'spark', name: 'the first spark of light' },
-  { type: 'spark' }, { type: 'star', name: 'a tiny star' }, { type: 'spark' },
-  { type: 'star' }, { type: 'cluster', name: 'a star cluster' },
-  { type: 'sun', name: 'a sun', glow: 1.0 },
-  { type: 'star' }, { type: 'spark' },
-  { type: 'planet', name: 'your first planet', glow: 0.5 },
-  { type: 'star' }, { type: 'star' },
-  { type: 'planet', name: 'a second planet', glow: 0.5 },
-  { type: 'comet', name: 'a comet' },
-  { type: 'cluster' },
-  { type: 'ringed', name: 'a ringed planet', glow: 0.6 },
-  { type: 'moon', name: 'a moon' }, { type: 'moon' },
-  { type: 'nebula', name: 'a nebula', glow: 1.4 },
-  { type: 'star' }, { type: 'cluster' },
-  { type: 'planet', name: 'a third planet', glow: 0.5 },
-  { type: 'galaxy', name: 'a distant galaxy', glow: 1.2 },
-];
-// After the schedule, the cosmos keeps growing with this repeating mix.
-const FILLER = ['star', 'spark', 'planet', 'cluster', 'star', 'comet',
-  'nebula', 'star', 'moon', 'ringed', 'cluster', 'galaxy'];
-
-const ENERGY_PER_BLOCK = 400;
-const MAX_BLOCKS = 6000;
-const CELL = 7; // css pixels per block
-
-// ---------------------------------------------------------------------------
-// Universe: lazily generates structures + placements from the seed
-// ---------------------------------------------------------------------------
-
-class Universe {
-  constructor(id) {
-    this.id = id;
-    this.name = universeName(id);
-    this.rng = mulberry32(hashSeed('pixels:' + id));
-    this.structures = [];   // {type, name, glow, blocks, anchor:{x,y}, span}
-    this.totalBlocks = 0;   // blocks across generated structures
-    this.boxes = [];        // occupied areas in virtual 200x112 cell space
-  }
-
-  scheduleEntry(i) {
-    if (i < SCHEDULE.length) return SCHEDULE[i];
-    return { type: FILLER[(i - SCHEDULE.length) % FILLER.length] };
-  }
-
-  generateNext() {
-    const i = this.structures.length;
-    const entry = this.scheduleEntry(i);
-    const blocks = GENERATORS[entry.type](this.rng);
-    let span = 1;
-    for (const b of blocks) span = Math.max(span, Math.abs(b.dx), Math.abs(b.dy));
-
-    // Find a spot in virtual 200x112 cell space that doesn't crowd others.
-    let ax = 0.5, ay = 0.5;
-    for (let attempt = 0; attempt < 50; attempt++) {
-      ax = 0.07 + this.rng() * 0.86;
-      ay = 0.09 + this.rng() * 0.82;
-      const cx = ax * 200, cy = ay * 112, pad = span + 4;
-      if (this.boxes.every((b) => Math.abs(b.x - cx) > b.span + pad || Math.abs(b.y - cy) > b.span + pad)) break;
-    }
-    this.boxes.push({ x: ax * 200, y: ay * 112, span });
-
-    const s = { ...entry, blocks, anchor: { x: ax, y: ay }, span, start: this.totalBlocks };
-    this.totalBlocks += blocks.length;
-    this.structures.push(s);
-    return s;
-  }
-
-  // Global block index -> {structure, block}
-  blockAt(index) {
-    while (this.totalBlocks <= index) this.generateNext();
-    for (let i = this.structures.length - 1; i >= 0; i--) {
-      const s = this.structures[i];
-      if (index >= s.start) return { s, b: s.blocks[index - s.start] };
-    }
-    return null;
-  }
+function makeField() {
+  const rng = mulberry32(0x9A1AC7);
+  const blocks = [];
+  const A = { x: 150, y: 1300 }, B = { x: 2300, y: 120 };
+  return {
+    name: 'the Milky Way', kind: 'field',
+    ensure(n) {
+      while (blocks.length <= n && blocks.length < FIELD_CAP) {
+        const t = rng();
+        const nearCore = t > 0.86;
+        const spread = nearCore ? 55 : 130;
+        const px = A.x + (B.x - A.x) * t, py = A.y + (B.y - A.y) * t;
+        // Perpendicular offset from the band's axis.
+        const off = (rng() + rng() + rng() - 1.5) * spread;
+        const len = Math.hypot(B.x - A.x, B.y - A.y);
+        const nx = -(B.y - A.y) / len, ny = (B.x - A.x) / len;
+        const bright = rng();
+        blocks.push({
+          cx: Math.round(px + nx * off), cy: Math.round(py + ny * off),
+          color: bright > 0.93 ? '#dfe8fa' : bright > 0.7 ? '#8fa8cc' : bright > 0.4 ? '#5d7ba8' : '#3a5178',
+          alpha: nearCore ? 0.5 + rng() * 0.5 : 0.25 + rng() * 0.5,
+          twinkle: bright > 0.96,
+        });
+      }
+      return blocks[Math.min(n, blocks.length - 1)];
+    },
+    blocks,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -331,126 +399,122 @@ class Universe {
 
 const canvas = document.getElementById('space');
 const ctx = canvas.getContext('2d');
-const grid = document.createElement('canvas'); // 1 canvas px = 1 block
+const grid = document.createElement('canvas');
+grid.width = WB; grid.height = HB;
 const gctx = grid.getContext('2d');
+
+const UNI = buildUniverse();
+const FIELD = makeField();
 
 const state = {
   sessions: new Map(),
-  current: null,
-  universe: null,
-  placed: 0,            // blocks drawn so far
-  sparks: [],           // builder sparks in flight
-  twinklers: [],        // {cx, cy, color, phase, speed}
-  glows: [],            // {x, y, r, strength} from completed structures
-  flashes: [],          // brief pop when a block lands
-  announced: 0,         // structures announced so far
-  loadedOnce: false,
+  placed: 0,
+  sparks: [],
+  twinklers: [],
+  flashes: [],
+  loaded: false,
   reduceMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
 };
+
+const HOME = { x: 800, y: 700, z: 0.55 };
+const cam = { ...HOME };       // current camera (world blocks)
+const camTarget = { ...HOME }; // eased toward each frame
 
 const $ = (id) => document.getElementById(id);
 
 // ---------------------------------------------------------------------------
-// Canvas sizing / grid drawing
+// Block accounting
 // ---------------------------------------------------------------------------
 
-let W = 0, H = 0, GW = 0, GH = 0, DPR = 1;
-
-function resize() {
-  DPR = Math.min(window.devicePixelRatio || 1, 2);
-  W = window.innerWidth;
-  H = window.innerHeight;
-  canvas.width = W * DPR;
-  canvas.height = H * DPR;
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  ctx.imageSmoothingEnabled = false;
-  GW = Math.ceil(W / CELL);
-  GH = Math.ceil(H / CELL);
-  grid.width = GW;
-  grid.height = GH;
-  replayGrid();
-}
-window.addEventListener('resize', resize);
-
-function cellOf(structure, block) {
-  return {
-    cx: Math.round(structure.anchor.x * GW) + block.dx,
-    cy: Math.round(structure.anchor.y * GH) + block.dy,
-  };
+function totalEnergy() {
+  let e = 0;
+  for (const s of state.sessions.values()) e += s.energy;
+  return e;
 }
 
-function stampBlock(structure, block) {
-  const { cx, cy } = cellOf(structure, block);
-  gctx.globalAlpha = block.alpha != null ? block.alpha : 1;
-  gctx.fillStyle = block.color;
-  gctx.fillRect(cx, cy, 1, 1);
-  gctx.globalAlpha = 1;
-}
-
-// Redraw every placed block (after resize or session switch).
-function replayGrid() {
-  gctx.clearRect(0, 0, GW, GH);
-  state.twinklers = [];
-  state.glows = [];
-  const u = state.universe;
-  if (!u) return;
-  for (let i = 0; i < state.placed; i++) {
-    const { s, b } = u.blockAt(i);
-    stampBlock(s, b);
-    registerEffects(s, b, i, false);
+function totalTokens() {
+  let t = 0;
+  for (const s of state.sessions.values()) {
+    t += s.tokens.input + s.tokens.output + s.tokens.cacheCreate + s.tokens.cacheRead;
   }
+  return t;
 }
 
-function registerEffects(s, b, index, live) {
-  if (b.twinkle && state.twinklers.length < 70) {
-    const { cx, cy } = cellOf(s, b);
-    state.twinklers.push({ cx, cy, color: b.color, phase: Math.random() * 6.28, speed: 0.4 + Math.random() * 1.2 });
+function currentSession() {
+  let best = null;
+  for (const s of state.sessions.values()) {
+    if (!best || (s.updatedAt || 0) > (best.updatedAt || 0)) best = s;
   }
-  if (s.glow && index === s.start + s.blocks.length - 1) {
-    state.glows.push({ x: s.anchor.x, y: s.anchor.y, r: (s.span + 6) * CELL * 2.2, strength: s.glow });
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Building: sparks place one block at a time
-// ---------------------------------------------------------------------------
-
-function targetEnergy() {
-  const s = state.sessions.get(state.current);
-  return s ? s.energy : 0;
+  return best;
 }
 
 function targetBlocks() {
-  return Math.min(MAX_BLOCKS, Math.floor(targetEnergy() / ENERGY_PER_BLOCK));
+  return Math.min(UNI.fixedTotal + FIELD_CAP, Math.floor(totalEnergy() / ENERGY_PER_BLOCK));
+}
+
+// index -> {s, layer, b, cx, cy}
+function blockAt(index) {
+  if (index >= UNI.fixedTotal) {
+    const b = FIELD.ensure(index - UNI.fixedTotal);
+    return { s: FIELD, layer: null, b, cx: b.cx, cy: b.cy };
+  }
+  for (let i = UNI.structures.length - 1; i >= 0; i--) {
+    const s = UNI.structures[i];
+    if (index >= s.start) {
+      for (let j = s.layers.length - 1; j >= 0; j--) {
+        const l = s.layers[j];
+        if (index >= l.start) {
+          const b = l.blocks[index - l.start];
+          return { s, layer: l, b, cx: s.cx + b.dx, cy: s.cy + b.dy };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Grid drawing
+// ---------------------------------------------------------------------------
+
+function stamp(info) {
+  gctx.globalAlpha = info.b.alpha != null ? info.b.alpha : 1;
+  gctx.fillStyle = info.b.color;
+  gctx.fillRect(info.cx, info.cy, 1, 1);
+  gctx.globalAlpha = 1;
+  if (info.b.twinkle && state.twinklers.length < 160) {
+    state.twinklers.push({ cx: info.cx, cy: info.cy, color: info.b.color, phase: Math.random() * 6.28, speed: 0.4 + Math.random() * 1.1 });
+  }
 }
 
 function placeBlock(index, announce) {
-  const u = state.universe;
-  const { s, b } = u.blockAt(index);
-  stampBlock(s, b);
-  registerEffects(s, b, index, true);
-  const { cx, cy } = cellOf(s, b);
+  const info = blockAt(index);
+  stamp(info);
   if (!state.reduceMotion) {
-    state.flashes.push({ x: cx * CELL + CELL / 2, y: cy * CELL + CELL / 2, life: 1 });
-    if (state.flashes.length > 60) state.flashes.shift();
+    state.flashes.push({ x: info.cx, y: info.cy, life: 1 });
+    if (state.flashes.length > 50) state.flashes.shift();
   }
-  // Announce a named structure the moment its last block lands.
-  if (announce && s.name && index === s.start + s.blocks.length - 1) {
-    toast(`✨ ${cap(s.name)} has formed`);
-  }
+  if (!announce || !info.layer) return;
+  const { s, layer } = info;
+  const layerEnd = layer.start + layer.blocks.length - 1;
+  const structEnd = s.start + s.count - 1;
+  if (index === structEnd && s.kind === 'body') toast(`✨ ${cap(s.name)} has formed`);
+  else if (index === layerEnd && layer.name) toast(`${cap(layer.name)} is complete`);
 }
 
 function cap(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
+
+// ---------------------------------------------------------------------------
+// Building animation
+// ---------------------------------------------------------------------------
 
 function advanceBuilding(dt) {
   const target = targetBlocks();
   let backlog = target - state.placed;
   if (backlog <= 0) { state.sparks = []; return; }
 
-  // Huge backlog (old session / burst): materialize instantly down to a tail
-  // that's fun to watch.
-  if (backlog > 140) {
-    const instant = backlog - 120;
+  if (backlog > 120) {
+    const instant = backlog - 100;
     for (let i = 0; i < instant; i++) placeBlock(state.placed++, false);
     backlog = target - state.placed;
   }
@@ -459,40 +523,138 @@ function advanceBuilding(dt) {
     return;
   }
 
-  // Keep 1–2 sparks flying; each carries one block to its destination.
-  const wanted = backlog > 25 ? 2 : 1;
+  const wanted = backlog > 20 ? 2 : 1;
   while (state.sparks.length < wanted && state.placed + state.sparks.length < target) {
     const index = state.placed + state.sparks.length;
-    const { s, b } = state.universe.blockAt(index);
-    const { cx, cy } = cellOf(s, b);
+    const info = blockAt(index);
+    // Sparks appear from the void just outside the current view.
+    const viewW = window.innerWidth / (BASE * cam.z);
     state.sparks.push({
       index,
-      x: Math.random() * W, y: -10 - Math.random() * 40, // drop in from above
-      tx: cx * CELL + CELL / 2, ty: cy * CELL + CELL / 2,
+      x: cam.x + (Math.random() - 0.5) * viewW,
+      y: cam.y - (window.innerHeight / (BASE * cam.z)) * 0.6,
+      tx: info.cx + 0.5, ty: info.cy + 0.5,
       trail: [],
     });
   }
 
-  // Faster travel when there's more to build.
-  const speed = Math.min(2.2, 0.55 + backlog * 0.03);
+  const speed = Math.min(2.4, 0.6 + backlog * 0.04);
   for (let i = state.sparks.length - 1; i >= 0; i--) {
     const sp = state.sparks[i];
     sp.trail.unshift({ x: sp.x, y: sp.y });
     if (sp.trail.length > 7) sp.trail.pop();
     const ddx = sp.tx - sp.x, ddy = sp.ty - sp.y;
     const dist = Math.hypot(ddx, ddy);
-    if (dist < 3) {
-      // Sparks resolve strictly in order so `placed` stays contiguous.
+    if (dist < 1.2) {
       if (sp.index === state.placed) {
         placeBlock(state.placed++, true);
         state.sparks.splice(i, 1);
+        renderLocations();
       }
     } else {
-      const step = Math.max(2.5, dist * 0.055) * speed * (dt / 16.7);
+      const step = Math.max(1.2, dist * 0.05) * speed * (dt / 16.7);
       sp.x += (ddx / dist) * step;
       sp.y += (ddy / dist) * step;
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Camera + input
+// ---------------------------------------------------------------------------
+
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W * DPR;
+  canvas.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resize);
+
+function w2s(x, y) {
+  const s = BASE * cam.z;
+  return { x: (x - cam.x) * s + W / 2, y: (y - cam.y) * s + H / 2 };
+}
+
+function clampCam() {
+  camTarget.z = Math.min(14, Math.max(0.2, camTarget.z));
+  camTarget.x = Math.min(WB, Math.max(0, camTarget.x));
+  camTarget.y = Math.min(HB, Math.max(0, camTarget.y));
+}
+
+let dragging = false, lastMouse = null;
+
+canvas.addEventListener('mousedown', (e) => { dragging = true; lastMouse = { x: e.clientX, y: e.clientY }; });
+window.addEventListener('mouseup', () => { dragging = false; });
+window.addEventListener('mousemove', (e) => {
+  if (!dragging) return;
+  const s = BASE * cam.z;
+  camTarget.x -= (e.clientX - lastMouse.x) / s;
+  camTarget.y -= (e.clientY - lastMouse.y) / s;
+  cam.x = camTarget.x; cam.y = camTarget.y; // pan feels 1:1, no easing lag
+  lastMouse = { x: e.clientX, y: e.clientY };
+  clampCam();
+});
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const factor = Math.exp(-e.deltaY * 0.0013);
+  zoomAt(e.clientX, e.clientY, factor);
+}, { passive: false });
+
+function zoomAt(px, py, factor) {
+  const s0 = BASE * cam.z;
+  const wx = (px - W / 2) / s0 + cam.x;
+  const wy = (py - H / 2) / s0 + cam.y;
+  camTarget.z *= factor;
+  clampCam();
+  const s1 = BASE * camTarget.z;
+  camTarget.x = wx - (px - W / 2) / s1;
+  camTarget.y = wy - (py - H / 2) / s1;
+  clampCam();
+}
+
+function flyTo(x, y, z) {
+  camTarget.x = x; camTarget.y = y; camTarget.z = z;
+  clampCam();
+}
+
+$('zoomIn').onclick = () => zoomAt(W / 2, H / 2, 1.45);
+$('zoomOut').onclick = () => zoomAt(W / 2, H / 2, 1 / 1.45);
+$('zoomReset').onclick = () => flyTo(HOME.x, HOME.y, HOME.z);
+
+// Touch: one finger pans, pinch zooms.
+let lastTouch = null;
+canvas.addEventListener('touchstart', (e) => { lastTouch = snapshotTouches(e); }, { passive: true });
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const now = snapshotTouches(e);
+  if (lastTouch && now.n === 1 && lastTouch.n === 1) {
+    const s = BASE * cam.z;
+    camTarget.x -= (now.x - lastTouch.x) / s;
+    camTarget.y -= (now.y - lastTouch.y) / s;
+    cam.x = camTarget.x; cam.y = camTarget.y;
+  } else if (lastTouch && now.n === 2 && lastTouch.n === 2 && lastTouch.d > 0) {
+    zoomAt(now.x, now.y, now.d / lastTouch.d);
+  }
+  clampCam();
+  lastTouch = now;
+}, { passive: false });
+
+function snapshotTouches(e) {
+  const t = e.touches;
+  if (t.length >= 2) {
+    return {
+      n: 2,
+      x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2,
+      d: Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY),
+    };
+  }
+  if (t.length === 1) return { n: 1, x: t[0].clientX, y: t[0].clientY, d: 0 };
+  return { n: 0, x: 0, y: 0, d: 0 };
 }
 
 // ---------------------------------------------------------------------------
@@ -505,46 +667,67 @@ function connect() {
     const msg = JSON.parse(ev.data);
     if (msg.type === 'snapshot') {
       for (const s of msg.sessions) state.sessions.set(s.id, s);
-      if (!state.loadedOnce) {
-        state.loadedOnce = true;
-        const urlSession = new URLSearchParams(location.search).get('session');
-        const pick = (urlSession && state.sessions.get(urlSession) && urlSession) ||
-          (msg.sessions[0] && msg.sessions[0].id);
-        if (pick) openUniverse(pick);
+      if (!state.loaded) {
+        state.loaded = true;
+        // Materialize history instantly; animate only the newest stretch.
+        state.placed = Math.max(0, targetBlocks() - 80);
+        for (let i = 0; i < state.placed; i++) stamp(blockAt(i));
+        renderLocations();
+        // ?goto=Earth&z=6 jumps straight to a location (shareable views).
+        const params = new URLSearchParams(location.search);
+        const goto = params.get('goto');
+        if (goto) {
+          const st = UNI.structures.find((x) => x.name.toLowerCase().includes(goto.toLowerCase()));
+          if (st) {
+            flyTo(st.cx, st.cy, parseFloat(params.get('z')) || 5);
+            Object.assign(cam, camTarget);
+          }
+        }
       }
-      renderSessionList();
     } else if (msg.type === 'update') {
-      const prev = state.sessions.get(msg.session.id);
       state.sessions.set(msg.session.id, msg.session);
-      renderSessionList();
-      if (msg.session.id !== state.current &&
-          $('followLive').checked && (!prev || msg.session.energy > prev.energy)) {
-        openUniverse(msg.session.id);
-      }
     }
   };
 }
 
 // ---------------------------------------------------------------------------
-// Opening a universe
+// Locations panel — jump around the one universe
 // ---------------------------------------------------------------------------
 
-function openUniverse(id) {
-  if (state.current === id) return;
-  state.current = id;
-  state.universe = new Universe(id);
-  state.placed = 0;
-  state.sparks = [];
-  state.flashes = [];
-  state.announced = 0;
-  // Show most of an existing universe immediately; animate the last stretch.
+let lastLocCount = -1;
+
+function renderLocations() {
   const target = targetBlocks();
-  state.placed = Math.max(0, target - 90);
-  replayGrid();
-  $('universeName').textContent = state.universe.name;
-  history.replaceState(null, '', '?session=' + id);
-  renderSessionList();
+  const started = UNI.structures.filter((s) => target > s.start);
+  const showField = target > UNI.fixedTotal;
+  const count = started.length + (showField ? 1 : 0);
+  if (count === lastLocCount) return;
+  lastLocCount = count;
+
+  const list = $('locationList');
+  list.innerHTML = '';
+  for (const s of started) {
+    const li = document.createElement('li');
+    const done = Math.min(target, s.start + s.count) - s.start;
+    li.textContent = cap(s.name);
+    if (done < s.count) li.classList.add('building');
+    li.onclick = () => {
+      const z = s.kind === 'ring' ? 0.8 : Math.min(9, Math.max(2.5, (H * 0.35) / (s.R * 2 * BASE)));
+      flyTo(s.cx, s.cy, s.kind === 'ring' ? 0.8 : z);
+    };
+    list.appendChild(li);
+  }
+  if (showField) {
+    const li = document.createElement('li');
+    li.textContent = 'The Milky Way';
+    li.onclick = () => flyTo(1400, 700, 0.35);
+    list.appendChild(li);
+  }
 }
+
+// ---------------------------------------------------------------------------
+// Render loop
+// ---------------------------------------------------------------------------
 
 let toastTimer = null;
 function toast(text) {
@@ -555,110 +738,116 @@ function toast(text) {
   toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
 }
 
-// ---------------------------------------------------------------------------
-// Sidebar — titles only
-// ---------------------------------------------------------------------------
-
-function renderSessionList() {
-  const list = $('sessionList');
-  const items = [...state.sessions.values()].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-  list.innerHTML = '';
-  const now = Date.now();
-  for (const s of items) {
-    const li = document.createElement('li');
-    if (s.id === state.current) li.classList.add('active');
-    const live = now - (s.updatedAt || 0) < 3 * 60 * 1000;
-    li.textContent = universeName(s.id);
-    if (live) {
-      const dot = document.createElement('span');
-      dot.className = 'livedot';
-      li.appendChild(dot);
-    }
-    li.onclick = () => openUniverse(s.id);
-    list.appendChild(li);
-  }
-}
-
 function fmt(n) {
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
   if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
   if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k';
   return String(Math.round(n));
 }
 
-// ---------------------------------------------------------------------------
-// Render loop
-// ---------------------------------------------------------------------------
-
 let lastT = 0;
 
 function frame(now) {
   requestAnimationFrame(frame);
-  if (document.hidden || !state.universe) { lastT = now; return; }
+  if (document.hidden || !state.loaded) { lastT = now; return; }
   const dt = Math.min(50, now - lastT || 16.7);
   lastT = now;
   const t = now / 1000;
 
+  // Ease camera.
+  cam.x += (camTarget.x - cam.x) * 0.12;
+  cam.y += (camTarget.y - cam.y) * 0.12;
+  cam.z += (camTarget.z - cam.z) * 0.14;
+
   advanceBuilding(dt);
 
-  // The void: near-black midnight with the faintest teal breath at the bottom.
+  const s = BASE * cam.z;
+
+  // Deep navy void.
   const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#050a12');
-  bg.addColorStop(0.75, '#071019');
-  bg.addColorStop(1, '#0a1a20');
+  bg.addColorStop(0, '#04070f');
+  bg.addColorStop(0.6, '#060b18');
+  bg.addColorStop(1, '#0a1224');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  // Soft luminescence around finished major structures (very subtle).
-  for (const g of state.glows) {
-    const gx = g.x * W, gy = g.y * H;
-    const grad = ctx.createRadialGradient(gx, gy, 0, gx, gy, g.r);
-    grad.addColorStop(0, `rgba(140, 226, 210, ${0.055 * g.strength})`);
-    grad.addColorStop(1, 'rgba(140, 226, 210, 0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(gx - g.r, gy - g.r, g.r * 2, g.r * 2);
+  // Orbit paths for planets that have begun forming (faint, scientific).
+  const target = targetBlocks();
+  const sunS = w2s(SUN.x, SUN.y);
+  ctx.strokeStyle = 'rgba(110, 150, 220, 0.09)';
+  ctx.lineWidth = 1;
+  for (const st of UNI.structures) {
+    if (st.kind !== 'body' || st.name === 'the Sun' || st.name === 'the Moon' || target <= st.start) continue;
+    const r = Math.hypot(st.cx - SUN.x, st.cy - SUN.y) * s;
+    if (r < 8 || r > Math.hypot(W, H) * 2) continue;
+    ctx.beginPath();
+    ctx.arc(sunS.x, sunS.y, r, 0, Math.PI * 2);
+    ctx.stroke();
   }
 
-  // Placed blocks, scaled up crisp.
+  // The world grid, crisp.
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(grid, 0, 0, GW, GH, 0, 0, GW * CELL, GH * CELL);
+  const vw = W / s, vh = H / s;
+  ctx.drawImage(grid,
+    cam.x - vw / 2, cam.y - vh / 2, vw, vh,
+    0, 0, W, H);
 
-  // Twinkling blocks: gently breathe.
-  if (!state.reduceMotion) {
+  // Twinkling blocks.
+  if (!state.reduceMotion && s > 0.8) {
     for (const tw of state.twinklers) {
-      const a = 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(t * tw.speed + tw.phase));
+      const p = w2s(tw.cx, tw.cy);
+      if (p.x < -10 || p.x > W + 10 || p.y < -10 || p.y > H + 10) continue;
+      const a = 0.2 + 0.5 * (0.5 + 0.5 * Math.sin(t * tw.speed + tw.phase));
       ctx.globalAlpha = a;
       ctx.fillStyle = tw.color;
-      ctx.fillRect(tw.cx * CELL - 1, tw.cy * CELL - 1, CELL + 2, CELL + 2);
+      ctx.fillRect(p.x - 1, p.y - 1, s + 2, s + 2);
     }
     ctx.globalAlpha = 1;
   }
 
-  // Landing flashes: a brief bright pop where a block just arrived.
+  // Landing flashes.
   for (let i = state.flashes.length - 1; i >= 0; i--) {
     const f = state.flashes[i];
     f.life -= dt / 450;
     if (f.life <= 0) { state.flashes.splice(i, 1); continue; }
-    const r = CELL * (1.6 - f.life);
-    ctx.globalAlpha = f.life * 0.55;
-    ctx.strokeStyle = '#bff0e6';
+    const p = w2s(f.x + 0.5, f.y + 0.5);
+    const r = Math.max(3, s) * (1.7 - f.life);
+    ctx.globalAlpha = f.life * 0.5;
+    ctx.strokeStyle = '#aecdf2';
     ctx.lineWidth = 1;
-    ctx.strokeRect(f.x - r, f.y - r, r * 2, r * 2);
+    ctx.strokeRect(p.x - r, p.y - r, r * 2, r * 2);
   }
   ctx.globalAlpha = 1;
 
-  // Builder sparks with a short fading trail.
+  // Builder sparks.
   for (const sp of state.sparks) {
     for (let k = 0; k < sp.trail.length; k++) {
-      ctx.globalAlpha = 0.35 * (1 - k / sp.trail.length);
-      ctx.fillStyle = '#9fe8dd';
-      const s = 3 - k * 0.3;
-      ctx.fillRect(sp.trail[k].x - s / 2, sp.trail[k].y - s / 2, s, s);
+      const p = w2s(sp.trail[k].x, sp.trail[k].y);
+      ctx.globalAlpha = 0.3 * (1 - k / sp.trail.length);
+      ctx.fillStyle = '#9fc0e8';
+      const sz = 3 - k * 0.3;
+      ctx.fillRect(p.x - sz / 2, p.y - sz / 2, sz, sz);
     }
-    ctx.globalAlpha = 0.9;
-    ctx.fillStyle = '#eafbf6';
-    ctx.fillRect(sp.x - 2, sp.y - 2, 4, 4);
+    const p = w2s(sp.x, sp.y);
+    ctx.globalAlpha = 0.95;
+    ctx.fillStyle = '#eaf2fc';
+    ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
   }
   ctx.globalAlpha = 1;
+
+  // Labels: only when zoomed in enough to care.
+  if (cam.z >= 1.1) {
+    ctx.font = '10px ui-monospace, Menlo, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(150, 178, 220, 0.6)';
+    for (const st of UNI.structures) {
+      if (target <= st.start || st.kind === 'ring') continue;
+      if (st.kind === 'star' && cam.z < 1.6) continue;
+      const p = w2s(st.cx, st.cy + st.R + 4);
+      if (p.x < -60 || p.x > W + 60 || p.y < -20 || p.y > H + 20) continue;
+      ctx.fillText(cap(st.name), p.x, p.y + 8);
+    }
+  }
 
   updateHUD();
 }
@@ -668,25 +857,29 @@ function frame(now) {
 // ---------------------------------------------------------------------------
 
 function updateHUD() {
-  const s = state.sessions.get(state.current);
-  if (!s) return;
-  $('energyVal').textContent = fmt(targetEnergy());
-  $('tokenVal').textContent = fmt(s.tokens.input + s.tokens.output + s.tokens.cacheCreate + s.tokens.cacheRead);
-  $('promptVal').textContent = s.prompts;
-  $('universeAge').textContent = `${state.placed.toLocaleString()} blocks placed`;
+  const cur = currentSession();
+  $('blocksVal').textContent = `${state.placed.toLocaleString()} blocks placed`;
+  $('totTok').textContent = fmt(totalTokens());
+  $('totEnergy').textContent = fmt(totalEnergy());
+  if (cur) {
+    $('sessTok').textContent = fmt(cur.tokens.input + cur.tokens.output + cur.tokens.cacheCreate + cur.tokens.cacheRead);
+    $('sessEnergy').textContent = fmt(cur.energy);
+  }
+  $('zoomPct').textContent = Math.round(cam.z * 100) + '%';
 
-  // Progress toward completing the structure currently being built.
-  const u = state.universe;
   const target = targetBlocks();
-  const info = u.blockAt(Math.max(0, target));
-  if (info) {
-    const { s: cur } = info;
-    const done = Math.min(target, cur.start + cur.blocks.length) - cur.start;
-    const label = cur.name || 'more of the cosmos';
-    const remainingEnergy = (cur.start + cur.blocks.length) * ENERGY_PER_BLOCK - targetEnergy();
+  const info = blockAt(Math.min(target, UNI.fixedTotal + FIELD_CAP - 1));
+  if (info && info.layer) {
+    const { s: st, layer } = info;
+    const done = Math.min(target, layer.start + layer.blocks.length) - layer.start;
+    const label = layer.name || st.name;
+    const finishEnergy = (layer.start + layer.blocks.length) * ENERGY_PER_BLOCK - totalEnergy();
     $('milestoneLabel').textContent =
-      `now forming: ${label} — ${Math.max(1, Math.ceil(remainingEnergy / 1000))}k energy to finish`;
-    $('milestoneFill').style.width = Math.max(3, (done / cur.blocks.length) * 100) + '%';
+      `now forming: ${label} — ${fmt(Math.max(1, finishEnergy))} energy to finish`;
+    $('milestoneFill').style.width = Math.max(3, (done / layer.blocks.length) * 100) + '%';
+  } else {
+    $('milestoneLabel').textContent = 'now forming: the Milky Way — one star at a time';
+    $('milestoneFill').style.width = '100%';
   }
 }
 
@@ -698,7 +891,7 @@ $('sidebarToggle').onclick = () => $('sidebar').classList.toggle('hidden');
 
 $('snapBtn').onclick = () => {
   const a = document.createElement('a');
-  a.download = (state.universe ? state.universe.name : 'universe').replace(/\s+/g, '-') + '.png';
+  a.download = 'the-known-universe.png';
   a.href = canvas.toDataURL('image/png');
   a.click();
   toast('📸 Universe saved as an image');
