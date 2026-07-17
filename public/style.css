@@ -42,7 +42,7 @@ html, body {
 
 #locationList { list-style: none; }
 #locationList li {
-  padding: 7px 10px;
+  padding: 6px 10px;
   border-radius: 5px;
   cursor: pointer;
   margin-bottom: 1px;
@@ -53,7 +53,19 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+#locationList li.group {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #7089b8;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 10px;
+}
+#locationList li.loc { padding-left: 20px; }
 #locationList li:hover { background: rgba(130, 165, 235, 0.08); color: #dce8fa; }
+#locationList li.locked { color: #3d4a68; }
+#locationList li.locked::after { content: ' 🔒'; font-size: 9px; opacity: 0.7; }
+#locationList li.locked:hover { color: #55648a; }
 #locationList li.building::after {
   content: '●';
   margin-left: 7px;
@@ -62,6 +74,34 @@ html, body {
   animation: pulse 1.6s infinite;
 }
 @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+/* ---- educational fact card ---- */
+#factCard {
+  position: fixed;
+  left: 50%; bottom: 60px;
+  transform: translateX(-50%) translateY(12px);
+  width: min(440px, 84vw);
+  padding: 14px 18px;
+  background: rgba(7, 14, 28, 0.94);
+  border: 1px solid rgba(130, 165, 235, 0.3);
+  border-radius: 9px;
+  z-index: 15;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s, transform 0.3s;
+}
+#factCard.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+#factCard h3 { font-size: 13px; color: #dce8fa; margin-bottom: 6px; letter-spacing: 0.03em; }
+#factCard p { font-size: 11.5px; color: #9fb4d8; line-height: 1.6; }
+#factClose {
+  position: absolute;
+  top: 6px; right: 9px;
+  border: none; background: none;
+  color: #55648a;
+  font-size: 15px;
+  cursor: pointer;
+}
+#factClose:hover { color: #dce8fa; }
 
 #sidebarToggle {
   position: fixed;

@@ -1,26 +1,28 @@
 /**
- * Token Universe — The Known Universe edition.
+ * Tokenverse — the universe, rebuilt one token at a time.
  *
  * ONE universe, fed by the combined token usage of EVERY Claude Code
- * session. It reconstructs our actual cosmic neighbourhood, slowly:
+ * session, reconstructing our real cosmic neighbourhood in build order:
  *
- *   the Sun (core → radiative zone → convective zone → photosphere)
- *   → Earth (inner core → outer core → mantles → crust → surface → air)
- *   → the Moon → Mercury → Venus → Mars → the asteroid belt
- *   → Jupiter → Saturn (+ rings) → Uranus → Neptune → the Kuiper belt
- *   → named nearby stars → the Milky Way's galactic field.
+ *   the Sun → Earth → the Moon → Mercury → Venus → Mars
+ *   → Halley's Comet → the asteroid belt → Jupiter → Saturn (+ rings)
+ *   → Uranus → Neptune → Pluto → the Kuiper belt → Voyager 1
+ *   → the Oort Cloud → named nearby stars → the Milky Way's field
+ *   → the Andromeda Galaxy.
  *
- * Planets are built from the core outward, so while under construction
- * you see a geological cutaway; the surface wraps over it at the end.
+ * Bodies build core-outward with real geological layers (a cutaway
+ * while under construction). Completed bodies earn animated ornaments
+ * (satellites and rockets for Earth, a flag on the Moon, a rover on
+ * Mars). Every location carries a short educational fact — including
+ * locked, not-yet-formed ones, shown greyed out in the atlas.
  *
- * ~40,000 cosmic energy = 1 block, so building is deliberately slow.
- * The world is pannable (drag) and zoomable (wheel / bottom-right
- * control). Everything is deterministic: same layout every time.
+ * ~22,000 cosmic energy = 1 block. Drag to pan, wheel to zoom,
+ * ?goto=Earth&z=6 deep-links. Deterministic: same universe every time.
  */
 'use strict';
 
 // ---------------------------------------------------------------------------
-// Deterministic randomness (fixed seed — it's OUR universe, always the same)
+// Deterministic randomness
 // ---------------------------------------------------------------------------
 
 function mulberry32(seed) {
@@ -37,11 +39,11 @@ function mulberry32(seed) {
 // Tuning
 // ---------------------------------------------------------------------------
 
-const ENERGY_PER_BLOCK = 40_000;  // slow, deliberate growth
-const BASE = 3;                   // css px per block at zoom 1
-const WB = 2400, HB = 1400;       // world size in blocks
-const SUN = { x: 500, y: 700 };   // world position of the Sun
-const FIELD_CAP = 30_000;         // max Milky Way field blocks
+const ENERGY_PER_BLOCK = 22_000;
+const BASE = 3;                    // css px per block at zoom 1
+const WB = 2400, HB = 1900;        // world size in blocks
+const SUN = { x: 500, y: 950 };
+const FIELD_CAP = 30_000;
 
 // ---------------------------------------------------------------------------
 // Pixel-art builders
@@ -62,13 +64,8 @@ function dither(rng, colors) {
   return colors[Math.min(colors.length - 1, (rng() * colors.length) | 0)];
 }
 
-/**
- * A body built as concentric geological shells, then a surface that wraps
- * over the whole face, then (optionally) a thin atmosphere.
- * shells: [{frac, name, colors}] ordered inside-out; fracs of R.
- */
 function makeBody(rng, cfg) {
-  const { name, cx, cy, R, shells, surface, surfaceName, sweep, atmosphere } = cfg;
+  const { name, cx, cy, R, shells, surface, surfaceName, sweep, atmosphere, fact, zoom } = cfg;
   const cells = discCells(R);
   const layers = [];
 
@@ -86,8 +83,8 @@ function makeBody(rng, cfg) {
     const blocks = cells
       .slice()
       .sort(sweep === 'bands'
-        ? (a, b) => a.dy - b.dy || a.dx - b.dx     // gas giants: band by band
-        : (a, b) => a.dx - b.dx || a.dy - b.dy)    // rocky: sweep across the face
+        ? (a, b) => a.dy - b.dy || a.dx - b.dx
+        : (a, b) => a.dx - b.dx || a.dy - b.dy)
       .map((c) => {
         const col = surface(c.dx, c.dy, c.d, R, rng);
         return col ? { dx: c.dx, dy: c.dy, color: col } : null;
@@ -98,21 +95,20 @@ function makeBody(rng, cfg) {
 
   if (atmosphere) {
     const blocks = [];
-    for (let dy = -R - 2; dy <= R + 2; dy++) {
-      for (let dx = -R - 2; dx <= R + 2; dx++) {
+    for (let dy = -R - 3; dy <= R + 3; dy++) {
+      for (let dx = -R - 3; dx <= R + 3; dx++) {
         const d = Math.hypot(dx, dy);
-        if (d > R + 0.3 && d <= R + 1.7) {
-          blocks.push({ dx, dy, color: atmosphere, alpha: 0.35 });
-        }
+        if (d > R + 0.3 && d <= R + 2.2) blocks.push({ dx, dy, color: atmosphere, alpha: 0.32 });
       }
     }
     layers.push({ name: 'the atmosphere', blocks });
   }
 
-  return { name, cx, cy, R, kind: 'body', layers };
+  return { name, cx, cy, R, kind: 'body', layers, fact, zoom };
 }
 
-function makeRingScatter(rng, name, layerName, dist, spread, count, colors, alphaLo) {
+function makeRingScatter(rng, cfg) {
+  const { name, dist, spread, count, colors, alphaLo, fact } = cfg;
   const blocks = [];
   for (let i = 0; i < count; i++) {
     const ang = rng() * Math.PI * 2;
@@ -125,11 +121,26 @@ function makeRingScatter(rng, name, layerName, dist, spread, count, colors, alph
       ang,
     });
   }
-  blocks.sort((a, b) => a.ang - b.ang); // builds sweeping around the orbit
-  return { name, cx: SUN.x, cy: SUN.y, R: dist + spread, kind: 'ring', layers: [{ name: layerName, blocks }] };
+  blocks.sort((a, b) => a.ang - b.ang);
+  return { name, cx: SUN.x, cy: SUN.y, R: dist + spread, kind: 'ring', layers: [{ name, blocks }], fact, zoom: 0.55 };
 }
 
-function makeStar(rng, name, cx, cy, size, color, dimColor) {
+function makeSprite(name, cx, cy, rows, paletteMap, fact, extra) {
+  // rows: array of strings; paletteMap: char -> [color, alpha?]
+  const blocks = [];
+  const h = rows.length;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < rows[y].length; x++) {
+      const ch = rows[y][x];
+      if (ch === ' ' || ch === '.') continue;
+      const [color, alpha, twinkle] = paletteMap[ch];
+      blocks.push({ dx: x - (rows[y].length >> 1), dy: y - (h >> 1), color, alpha, twinkle });
+    }
+  }
+  return { name, cx, cy, R: Math.max(4, h), kind: 'body', layers: [{ name: null, blocks }], fact, ...extra };
+}
+
+function makeStar(rng, name, cx, cy, size, color, dimColor, fact) {
   const blocks = [{ dx: 0, dy: 0, color, twinkle: true }];
   if (size > 1) {
     blocks.push(
@@ -141,22 +152,49 @@ function makeStar(rng, name, cx, cy, size, color, dimColor) {
       { dx: -2, dy: 0, color: dimColor, alpha: 0.5 }, { dx: 2, dy: 0, color: dimColor, alpha: 0.5 },
       { dx: 0, dy: -2, color: dimColor, alpha: 0.5 }, { dx: 0, dy: 2, color: dimColor, alpha: 0.5 });
   }
-  return { name, cx, cy, R: size, kind: 'star', layers: [{ name: null, blocks }] };
+  return { name, cx, cy, R: size, kind: 'star', layers: [{ name: null, blocks }], fact };
+}
+
+function makeSpiralGalaxy(rng, cfg) {
+  const { name, cx, cy, R, coreColors, armColors, fact } = cfg;
+  const blocks = [];
+  // Core bulge.
+  for (const c of discCells(Math.round(R * 0.22))) {
+    blocks.push({ dx: c.dx, dy: Math.round(c.dy * 0.7), color: dither(rng, coreColors), d: c.d });
+  }
+  // Two arms.
+  for (let arm = 0; arm < 2; arm++) {
+    for (let t = 1.2; t < 11; t += 0.055) {
+      const ang = t * 0.62 + arm * Math.PI;
+      const rad = t * (R / 11);
+      const jx = (rng() - 0.5) * 2.5, jy = (rng() - 0.5) * 2;
+      blocks.push({
+        dx: Math.round(Math.cos(ang) * rad + jx),
+        dy: Math.round(Math.sin(ang) * rad * 0.55 + jy),
+        color: dither(rng, armColors),
+        alpha: Math.max(0.25, 1 - t * 0.08),
+        twinkle: rng() < 0.02,
+        d: rad,
+      });
+    }
+  }
+  blocks.sort((a, b) => (a.d || 0) - (b.d || 0));
+  return { name, cx, cy, R, kind: 'body', layers: [{ name: null, blocks }], fact, zoom: 3 };
 }
 
 // ---------------------------------------------------------------------------
-// The Known Universe — structure definitions (built in this order)
+// The universe — structures in build order, with educational facts
 // ---------------------------------------------------------------------------
 
 function planetX(dist) { return SUN.x + dist; }
 
-function buildUniverse() {
+function buildSequence() {
   const rng = mulberry32(0xC05305);
   const S = [];
 
-  // --- The Sun: real interior structure ---
   const sun = makeBody(rng, {
-    name: 'the Sun', cx: SUN.x, cy: SUN.y, R: 30,
+    name: 'the Sun', cx: SUN.x, cy: SUN.y, R: 40,
+    fact: 'The Sun holds 99.8% of the Solar System\'s mass. Light from its core takes up to 100,000 years to escape to the surface — then just 8 minutes to reach Earth.',
     shells: [
       { frac: 0.25, name: "the Sun's core", colors: ['#fff7e2', '#fdf2d2'] },
       { frac: 0.55, name: 'the radiative zone', colors: ['#ffe9b4', '#fce2a2'] },
@@ -164,48 +202,53 @@ function buildUniverse() {
       { frac: 1.0, name: 'the photosphere', colors: ['#ffc45e', '#f2b455', '#e8a94f'] },
     ],
   });
-  // Corona: faint spikes.
   const corona = [];
   for (const [ux, uy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
-    const len = ux && uy ? 2 : 4;
+    const len = ux && uy ? 3 : 5;
     for (let k = 1; k <= len; k++) {
-      corona.push({ dx: ux * (30 + 1 + k), dy: uy * (30 + 1 + k), color: '#e8a94f', alpha: 0.6 - k * 0.12, twinkle: true });
+      corona.push({ dx: ux * (40 + 1 + k), dy: uy * (40 + 1 + k), color: '#e8a94f', alpha: 0.55 - k * 0.09, twinkle: true });
     }
   }
   sun.layers.push({ name: 'the corona', blocks: corona });
   S.push(sun);
 
-  // --- Earth first (as requested), with full geological layering ---
+  // Earth — extra detail: six real geological layers, then surface + air.
   S.push(makeBody(rng, {
-    name: 'Earth', cx: planetX(160), cy: SUN.y, R: 9,
+    name: 'Earth', cx: planetX(200), cy: SUN.y, R: 16,
+    fact: 'The only known world with life. Earth\'s inner core is a solid iron ball nearly as hot as the Sun\'s surface; its spin in the molten outer core generates the magnetic field that shields us.',
     shells: [
       { frac: 0.19, name: "Earth's inner core", colors: ['#f2ead0', '#ece2c2'] },
-      { frac: 0.35, name: "Earth's outer core", colors: ['#e8b04e', '#dfa444'] },
-      { frac: 0.62, name: 'the lower mantle', colors: ['#c96a3f', '#bd6039'] },
-      { frac: 0.85, name: 'the upper mantle', colors: ['#a45238', '#984b33'] },
+      { frac: 0.35, name: "Earth's outer core", colors: ['#e8b04e', '#dfa444', '#e2aa49'] },
+      { frac: 0.55, name: 'the lower mantle', colors: ['#c96a3f', '#bd6039'] },
+      { frac: 0.74, name: 'the upper mantle', colors: ['#a45238', '#984b33'] },
+      { frac: 0.9, name: 'the asthenosphere', colors: ['#8a4a36', '#7f4431'] },
       { frac: 1.0, name: 'the crust', colors: ['#6b4a36', '#5f4230'] },
     ],
     surfaceName: 'oceans and continents',
     surface: (dx, dy, d, R, r) => {
-      if (Math.abs(dy) > R * 0.82) return r() < 0.75 ? '#dfe8ee' : '#c8d8e2';     // polar ice
-      const n = Math.sin(dx * 0.9 + 1.7) + Math.sin(dy * 1.1 + dx * 0.5) + (r() - 0.5);
-      return n > 0.55 ? (r() < 0.85 ? '#4f7d4a' : '#5f8d54') : (r() < 0.9 ? '#2e5f9e' : '#3a6cab');
+      if (Math.abs(dy) > R * 0.86) return r() < 0.75 ? '#dfe8ee' : '#c8d8e2';
+      const n = Math.sin(dx * 0.5 + 1.7) + Math.sin(dy * 0.62 + dx * 0.28)
+        + 0.6 * Math.sin(dx * 0.23 - dy * 0.4 + 2.2) + (r() - 0.5) * 0.9;
+      if (n > 1.1) return r() < 0.2 ? '#6f9458' : '#4f7d4a';          // land
+      if (n > 0.8) return '#c9b98a';                                  // coasts/desert
+      return r() < 0.88 ? '#2e5f9e' : '#3a6cab';                      // ocean
     },
     atmosphere: '#9fc8e8',
   }));
 
   S.push(makeBody(rng, {
-    name: 'the Moon', cx: planetX(160) + 15, cy: SUN.y - 9, R: 2,
-    shells: [{ frac: 1.0, name: null, colors: ['#c9c9c4', '#a8a8a2'] }],
+    name: 'the Moon', cx: planetX(200) + 24, cy: SUN.y - 14, R: 4,
+    fact: 'The Moon drifts 3.8 cm farther from Earth every year, and its gravity is what gives our oceans tides. Twelve people have walked on it.',
+    shells: [{ frac: 1.0, name: null, colors: ['#c9c9c4', '#b2b2ac'] }],
     surfaceName: null,
-    surface: (dx, dy, d, R, r) => (r() < 0.2 ? '#8f8f8a' : null),
+    surface: (dx, dy, d, R, r) => (r() < 0.22 ? '#8f8f8a' : null),
   }));
 
-  // --- Then inward-out: Mercury, Venus, Mars ---
   S.push(makeBody(rng, {
-    name: 'Mercury', cx: planetX(70), cy: SUN.y, R: 4,
+    name: 'Mercury', cx: planetX(85), cy: SUN.y, R: 7,
+    fact: 'The smallest planet, with an iron core filling about 85% of its radius. A Mercury day (sunrise to sunrise) lasts 176 Earth days — longer than its year.',
     shells: [
-      { frac: 0.7, name: "Mercury's iron core", colors: ['#c8b08a', '#bfa67e'] },  // huge core — accurate!
+      { frac: 0.75, name: "Mercury's huge iron core", colors: ['#c8b08a', '#bfa67e'] },
       { frac: 1.0, name: "Mercury's mantle and crust", colors: ['#8a7d70', '#7d7166'] },
     ],
     surfaceName: 'a cratered surface',
@@ -213,7 +256,8 @@ function buildUniverse() {
   }));
 
   S.push(makeBody(rng, {
-    name: 'Venus', cx: planetX(110), cy: SUN.y, R: 8,
+    name: 'Venus', cx: planetX(140), cy: SUN.y, R: 15,
+    fact: 'The hottest planet — about 465°C under a crushing CO₂ atmosphere, hot enough to melt lead. It spins backwards, so the Sun rises in the west.',
     shells: [
       { frac: 0.5, name: "Venus's core", colors: ['#d8b878', '#cead6c'] },
       { frac: 0.85, name: "Venus's mantle", colors: ['#b0714a', '#a56843'] },
@@ -221,13 +265,14 @@ function buildUniverse() {
     ],
     surfaceName: 'thick sulfuric clouds',
     surface: (dx, dy, d, R, r) => {
-      const band = Math.sin(dy * 0.9 + dx * 0.25);
+      const band = Math.sin(dy * 0.55 + dx * 0.18);
       return band > 0 ? (r() < 0.9 ? '#e6d9a8' : '#ded093') : '#d9c48a';
     },
   }));
 
   S.push(makeBody(rng, {
-    name: 'Mars', cx: planetX(215), cy: SUN.y, R: 5,
+    name: 'Mars', cx: planetX(265), cy: SUN.y, R: 9,
+    fact: 'Home to Olympus Mons, a volcano nearly three times the height of Everest, and Valles Marineris, a canyon as long as the USA. Its red colour is literally rust.',
     shells: [
       { frac: 0.45, name: "Mars's core", colors: ['#c89058', '#bd8750'] },
       { frac: 0.8, name: "Mars's mantle", colors: ['#a05a3a', '#955335'] },
@@ -235,18 +280,30 @@ function buildUniverse() {
     ],
     surfaceName: 'the red surface',
     surface: (dx, dy, d, R, r) => {
-      if (Math.abs(dy) > R * 0.8) return '#e8e2da';                                 // polar caps
+      if (Math.abs(dy) > R * 0.82) return '#e8e2da';
       return r() < 0.75 ? '#c1704f' : '#a85a3f';
     },
   }));
 
-  // --- Asteroid belt ---
-  S.push(makeRingScatter(rng, 'the asteroid belt', 'the asteroid belt', 270, 12, 480,
-    ['#8a8578', '#6f6b60', '#a09a8c'], 0.35));
+  // Halley's Comet — a small nucleus with a tail pointing away from the Sun.
+  S.push(makeSprite("Halley's Comet", planetX(330), SUN.y - 150, [
+    '......bb',
+    '...abbWc',
+    'aabbcc..',
+    '...ab...',
+  ], {
+    W: ['#eaf2fc', 1, true], a: ['#3a5178', 0.35], b: ['#5d7ba8', 0.55], c: ['#8fa8cc', 0.8],
+  }, 'The most famous comet, visible from Earth every 75–79 years (next: 2061). Its tail always points away from the Sun, pushed by the solar wind.', { zoom: 7 }));
 
-  // --- Gas giants ---
+  S.push(makeRingScatter(rng, {
+    name: 'the asteroid belt', dist: 330, spread: 14, count: 700,
+    colors: ['#8a8578', '#6f6b60', '#a09a8c'], alphaLo: 0.35,
+    fact: 'Millions of rocky leftovers from the Solar System\'s formation orbit between Mars and Jupiter — yet all of them together weigh less than our Moon.',
+  }));
+
   S.push(makeBody(rng, {
-    name: 'Jupiter', cx: planetX(360), cy: SUN.y, R: 20,
+    name: 'Jupiter', cx: planetX(440), cy: SUN.y, R: 32,
+    fact: 'Larger than all other planets combined. The Great Red Spot is a storm wider than Earth that has raged for at least 300 years. Jupiter\'s gravity shields the inner planets from comets.',
     shells: [
       { frac: 0.2, name: "Jupiter's rocky core", colors: ['#d8c8a8', '#cfbf9c'] },
       { frac: 0.55, name: 'metallic hydrogen', colors: ['#b89a78', '#ae9070'] },
@@ -256,15 +313,15 @@ function buildUniverse() {
     sweep: 'bands',
     surfaceName: 'banded clouds',
     surface: (dx, dy, d, R, r) => {
-      // The Great Red Spot, southern hemisphere.
-      if (Math.hypot((dx - 7) / 4.2, (dy - 8) / 2.4) < 1) return r() < 0.85 ? '#c05a3a' : '#b25234';
+      if (Math.hypot((dx - 11) / 6.5, (dy - 12) / 3.6) < 1) return r() < 0.85 ? '#c05a3a' : '#b25234';
       const bands = ['#e8dcc8', '#c9a685', '#dcc9ae', '#b98d6f', '#e2d4bc', '#a8765a'];
-      return dither(r, [bands[(Math.floor(dy / 3.2) % bands.length + bands.length) % bands.length]]);
+      return bands[(Math.floor(dy / 5) % bands.length + bands.length) % bands.length];
     },
   }));
 
   const saturn = makeBody(rng, {
-    name: 'Saturn', cx: planetX(470), cy: SUN.y, R: 16,
+    name: 'Saturn', cx: planetX(560), cy: SUN.y, R: 26,
+    fact: 'So light it would float in water. Its rings are billions of chunks of nearly pure ice, up to house-sized, yet on average only about 10 metres thick.',
     shells: [
       { frac: 0.25, name: "Saturn's core", colors: ['#d0c0a0', '#c7b795'] },
       { frac: 0.6, name: 'metallic hydrogen', colors: ['#c0ab8c', '#b7a284'] },
@@ -274,18 +331,18 @@ function buildUniverse() {
     surfaceName: 'pale gold bands',
     surface: (dx, dy, d, R, r) => {
       const bands = ['#e8d9b8', '#d9c8a0', '#e2d2ae', '#c8b088'];
-      return bands[(Math.floor(dy / 3.5) % bands.length + bands.length) % bands.length];
+      return bands[(Math.floor(dy / 5.5) % bands.length + bands.length) % bands.length];
     },
   });
-  // Saturn's rings, with the Cassini Division gap.
+  const RR = 26;
   const ringBlocks = [];
-  for (let dx = -(16 + 15); dx <= 16 + 15; dx++) {
-    for (let dy = -3; dy <= 3; dy++) {
-      const e = Math.hypot(dx / (16 + 15), dy / 2.6);
-      const inner = Math.hypot(dx / (16 + 5), dy / 1.2);
+  for (let dx = -(RR + 22); dx <= RR + 22; dx++) {
+    for (let dy = -5; dy <= 5; dy++) {
+      const e = Math.hypot(dx / (RR + 22), dy / 4.2);
+      const inner = Math.hypot(dx / (RR + 7), dy / 1.8);
       if (e > 1 || inner < 1) continue;
-      if (Math.hypot(dx, dy) <= 16.3) continue;                 // don't overwrite the body
-      const cassini = Math.abs(Math.hypot(dx / (16 + 11), dy / 2.0) - 1) < 0.045;
+      if (Math.hypot(dx, dy) <= RR + 0.3) continue;
+      const cassini = Math.abs(Math.hypot(dx / (RR + 16), dy / 3.1) - 1) < 0.04;
       ringBlocks.push({
         dx, dy,
         color: cassini ? '#5a5346' : dither(rng, ['#cfc4ae', '#c2b7a0', '#b8ad96']),
@@ -299,7 +356,8 @@ function buildUniverse() {
   S.push(saturn);
 
   S.push(makeBody(rng, {
-    name: 'Uranus', cx: planetX(580), cy: SUN.y, R: 11,
+    name: 'Uranus', cx: planetX(680), cy: SUN.y, R: 17,
+    fact: 'Uranus rolls around the Sun on its side — its axis is tilted 98°, probably from an ancient collision — so each pole gets 42 years of sunlight, then 42 years of night.',
     shells: [
       { frac: 0.3, name: "Uranus's rocky core", colors: ['#c8bca8', '#bfb39e'] },
       { frac: 0.8, name: 'an icy mantle', colors: ['#7ab8c8', '#70afc0'] },
@@ -311,7 +369,8 @@ function buildUniverse() {
   }));
 
   S.push(makeBody(rng, {
-    name: 'Neptune', cx: planetX(680), cy: SUN.y, R: 11,
+    name: 'Neptune', cx: planetX(790), cy: SUN.y, R: 17,
+    fact: 'The windiest world: supersonic storms reach 2,100 km/h. Neptune was found by mathematics before telescopes — its gravity was tugging Uranus off course.',
     shells: [
       { frac: 0.3, name: "Neptune's rocky core", colors: ['#c0b4a0', '#b7ab96'] },
       { frac: 0.8, name: 'an icy mantle', colors: ['#4a6fb8', '#4468ae'] },
@@ -320,78 +379,131 @@ function buildUniverse() {
     sweep: 'bands',
     surfaceName: 'deep blue storms',
     surface: (dx, dy, d, R, r) => {
-      if (dy === -3 && dx > -6 && dx < 2) return '#dfe8f4';     // white storm streak
+      if (dy === -5 && dx > -8 && dx < 3) return '#dfe8f4';
       return r() < 0.8 ? '#3f6ad8' : '#2f55b8';
     },
   }));
 
-  // --- Kuiper belt + Pluto ---
-  S.push(makeRingScatter(rng, 'the Kuiper belt', 'the Kuiper belt', 780, 28, 620,
-    ['#6f7a8a', '#5a6474', '#8a93a2'], 0.25));
   S.push(makeBody(rng, {
-    name: 'Pluto', cx: planetX(780), cy: SUN.y - 40, R: 2,
+    name: 'Pluto', cx: planetX(880), cy: SUN.y - 55, R: 3,
+    fact: 'A dwarf planet smaller than our Moon, with a heart-shaped nitrogen glacier (Tombaugh Regio). Reclassified from planet to dwarf planet in 2006.',
     shells: [{ frac: 1.0, name: null, colors: ['#c8b8a8', '#baa896'] }],
     surfaceName: null,
-    surface: (dx, dy, d, R, r) => (dx <= 0 && dy >= 0 && r() < 0.6 ? '#e2d8ca' : null), // heart-ish patch
+    surface: (dx, dy, d, R, r) => (dx <= 0 && dy >= 0 && r() < 0.6 ? '#e2d8ca' : null),
   }));
 
-  // --- Named nearby stars, roughly by real distance from us ---
+  S.push(makeRingScatter(rng, {
+    name: 'the Kuiper belt', dist: 880, spread: 30, count: 800,
+    colors: ['#6f7a8a', '#5a6474', '#8a93a2'], alphaLo: 0.25,
+    fact: 'A vast ring of icy bodies beyond Neptune — home of Pluto and the source of short-period comets. It holds hundreds of thousands of objects over 100 km wide.',
+  }));
+
+  // Voyager 1 — a tiny probe on its way out.
+  S.push(makeSprite('Voyager 1', planetX(1000), SUN.y + 90, [
+    '.W.',
+    'aWa',
+    '.a.',
+    '.b.',
+  ], {
+    W: ['#eaf2fc', 1, true], a: ['#8fa8cc', 0.8], b: ['#5d7ba8', 0.5],
+  }, 'Launched in 1977, Voyager 1 is the farthest human-made object — over 24 billion km away, in interstellar space. It carries a golden record of Earth\'s sounds and music.', { zoom: 8 }));
+
+  S.push(makeRingScatter(rng, {
+    name: 'the Oort Cloud', dist: 900, spread: 45, count: 550,
+    colors: ['#4a5a78', '#3a4a66', '#5d7092'], alphaLo: 0.15,
+    fact: 'A hypothesised shell of trillions of icy objects surrounding the whole Solar System, halfway to the next star. Long-period comets fall inward from here.',
+  }));
+
   const stars = [
-    ['Proxima Centauri', 1500, 1050, 1, '#e8a8a0', '#a86a64'],
-    ['Alpha Centauri', 1560, 1020, 2, '#f2ead2', '#b0a880'],
-    ["Barnard's Star", 1380, 380, 1, '#e0968a', '#9a6258'],
-    ['Sirius', 1700, 850, 3, '#eaf2ff', '#8fa8d8'],
-    ['Epsilon Eridani', 1250, 1180, 1, '#f0c890', '#b08c58'],
-    ['Tau Ceti', 1820, 500, 1, '#f2dca8', '#b09c6a'],
-    ['Vega', 1980, 950, 2, '#dce8ff', '#8098c8'],
-    ['Altair', 2050, 620, 2, '#e8eefc', '#94a4c8'],
-    ['Polaris', 1150, 180, 2, '#f2f0e2', '#a8a488'],
-    ['Betelgeuse', 2200, 380, 3, '#e88a5a', '#a85a38'],
-    ['Rigel', 2250, 1100, 3, '#cfe0ff', '#7890c0'],
+    ['Proxima Centauri', 1500, 1420, 1, '#e8a8a0', '#a86a64'],
+    ['Alpha Centauri', 1560, 1380, 2, '#f2ead2', '#b0a880'],
+    ["Barnard's Star", 1380, 520, 1, '#e0968a', '#9a6258'],
+    ['Sirius', 1700, 1150, 3, '#eaf2ff', '#8fa8d8'],
+    ['Epsilon Eridani', 1250, 1600, 1, '#f0c890', '#b08c58'],
+    ['Tau Ceti', 1820, 680, 1, '#f2dca8', '#b09c6a'],
+    ['Vega', 1980, 1280, 2, '#dce8ff', '#8098c8'],
+    ['Altair', 2050, 840, 2, '#e8eefc', '#94a4c8'],
+    ['Polaris', 1150, 250, 2, '#f2f0e2', '#a8a488'],
+    ['Betelgeuse', 2200, 520, 3, '#e88a5a', '#a85a38'],
+    ['Rigel', 2250, 1500, 3, '#cfe0ff', '#7890c0'],
   ];
-  for (const [name, x, y, size, c, dim] of stars) S.push(makeStar(rng, name, x, y, size, c, dim));
+  for (const [name, x, y, size, c, dim] of stars) {
+    S.push(makeStar(rng, name, x, y, size, c, dim));
+  }
+  // Group fact for the whole neighbourhood (attached to the first star).
+  S[S.length - stars.length].fact =
+    'Proxima Centauri is our nearest star after the Sun — 4.24 light-years away. Even at Voyager 1\'s speed, reaching it would take over 70,000 years.';
+
+  // The Milky Way's galactic field — lazy, huge.
+  const fieldRng = mulberry32(0x9A1AC7);
+  const fieldBlocks = [];
+  const A = { x: 150, y: 1800 }, B = { x: 2300, y: 150 };
+  S.push({
+    name: 'the galactic field', kind: 'field', cx: 1400, cy: 950, R: 600, zoom: 0.35,
+    fact: 'The Milky Way holds 100–400 billion stars in a disc 100,000 light-years across. Every star you can see with the naked eye lives inside it. We orbit its centre once every 230 million years.',
+    count: FIELD_CAP,
+    layers: [{ name: 'the Milky Way', blocks: fieldBlocks }],
+    ensure(n) {
+      while (fieldBlocks.length <= n && fieldBlocks.length < FIELD_CAP) {
+        const t = fieldRng();
+        const nearCore = t > 0.86;
+        const spread = nearCore ? 60 : 150;
+        const px = A.x + (B.x - A.x) * t, py = A.y + (B.y - A.y) * t;
+        const off = (fieldRng() + fieldRng() + fieldRng() - 1.5) * spread;
+        const len = Math.hypot(B.x - A.x, B.y - A.y);
+        const nx = -(B.y - A.y) / len, ny = (B.x - A.x) / len;
+        const bright = fieldRng();
+        fieldBlocks.push({
+          cx: Math.round(px + nx * off), cy: Math.round(py + ny * off),
+          color: bright > 0.93 ? '#dfe8fa' : bright > 0.7 ? '#8fa8cc' : bright > 0.4 ? '#5d7ba8' : '#3a5178',
+          alpha: nearCore ? 0.5 + fieldRng() * 0.5 : 0.25 + fieldRng() * 0.5,
+          twinkle: bright > 0.97,
+        });
+      }
+      return fieldBlocks[Math.min(n, fieldBlocks.length - 1)];
+    },
+  });
+
+  // Beyond: Andromeda.
+  S.push(makeSpiralGalaxy(rng, {
+    name: 'the Andromeda Galaxy', cx: 350, cy: 280, R: 48,
+    coreColors: ['#f2ecdc', '#e8dfc8'],
+    armColors: ['#9fb0d8', '#7a8cc0', '#5d6f9e', '#48587e'],
+    fact: 'Our nearest major galaxy, 2.5 million light-years away, with about a trillion stars. It is approaching us at 110 km/s and will merge with the Milky Way in ~4.5 billion years.',
+  }));
 
   // Cumulative indices.
   let acc = 0;
   for (const s of S) {
     s.start = acc;
-    for (const l of s.layers) { l.start = acc; acc += l.blocks.length; }
-    s.count = acc - s.start;
+    if (s.kind === 'field') {
+      s.layers[0].start = acc;
+      acc += s.count;
+    } else {
+      for (const l of s.layers) { l.start = acc; acc += l.blocks.length; }
+      s.count = acc - s.start;
+    }
   }
-  return { structures: S, fixedTotal: acc };
+  return { structures: S, total: acc };
 }
 
-// --- The Milky Way field: lazily generated, effectively endless ---
+// ---------------------------------------------------------------------------
+// Atlas (locations panel) definition — display order, not build order
+// ---------------------------------------------------------------------------
 
-function makeField() {
-  const rng = mulberry32(0x9A1AC7);
-  const blocks = [];
-  const A = { x: 150, y: 1300 }, B = { x: 2300, y: 120 };
-  return {
-    name: 'the Milky Way', kind: 'field',
-    ensure(n) {
-      while (blocks.length <= n && blocks.length < FIELD_CAP) {
-        const t = rng();
-        const nearCore = t > 0.86;
-        const spread = nearCore ? 55 : 130;
-        const px = A.x + (B.x - A.x) * t, py = A.y + (B.y - A.y) * t;
-        // Perpendicular offset from the band's axis.
-        const off = (rng() + rng() + rng() - 1.5) * spread;
-        const len = Math.hypot(B.x - A.x, B.y - A.y);
-        const nx = -(B.y - A.y) / len, ny = (B.x - A.x) / len;
-        const bright = rng();
-        blocks.push({
-          cx: Math.round(px + nx * off), cy: Math.round(py + ny * off),
-          color: bright > 0.93 ? '#dfe8fa' : bright > 0.7 ? '#8fa8cc' : bright > 0.4 ? '#5d7ba8' : '#3a5178',
-          alpha: nearCore ? 0.5 + rng() * 0.5 : 0.25 + rng() * 0.5,
-          twinkle: bright > 0.96,
-        });
-      }
-      return blocks[Math.min(n, blocks.length - 1)];
-    },
-    blocks,
-  };
-}
+const ATLAS = [
+  {
+    title: 'The Milky Way', names: [
+      'the Sun', 'Mercury', 'Venus', 'Earth', 'the Moon', 'Mars',
+      "Halley's Comet", 'the asteroid belt', 'Jupiter', 'Saturn', 'Uranus',
+      'Neptune', 'Pluto', 'the Kuiper belt', 'Voyager 1', 'the Oort Cloud',
+      'Proxima Centauri', 'Sirius', 'Polaris', 'Betelgeuse', 'the galactic field',
+    ],
+  },
+  {
+    title: 'Beyond the Milky Way', names: ['the Andromeda Galaxy'],
+  },
+];
 
 // ---------------------------------------------------------------------------
 // App state
@@ -403,8 +515,8 @@ const grid = document.createElement('canvas');
 grid.width = WB; grid.height = HB;
 const gctx = grid.getContext('2d');
 
-const UNI = buildUniverse();
-const FIELD = makeField();
+const UNI = buildSequence();
+const byName = new Map(UNI.structures.map((s) => [s.name, s]));
 
 const state = {
   sessions: new Map(),
@@ -413,12 +525,13 @@ const state = {
   twinklers: [],
   flashes: [],
   loaded: false,
+  collapsed: new Set(),
   reduceMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
 };
 
-const HOME = { x: 800, y: 700, z: 0.55 };
-const cam = { ...HOME };       // current camera (world blocks)
-const camTarget = { ...HOME }; // eased toward each frame
+const HOME = { x: 750, y: 950, z: 0.5 };
+const cam = { ...HOME };
+const camTarget = { ...HOME };
 
 const $ = (id) => document.getElementById(id);
 
@@ -449,24 +562,25 @@ function currentSession() {
 }
 
 function targetBlocks() {
-  return Math.min(UNI.fixedTotal + FIELD_CAP, Math.floor(totalEnergy() / ENERGY_PER_BLOCK));
+  return Math.min(UNI.total, Math.floor(totalEnergy() / ENERGY_PER_BLOCK));
 }
 
-// index -> {s, layer, b, cx, cy}
+function structDone(s) { return targetBlocks() >= s.start + (s.count || 0); }
+
 function blockAt(index) {
-  if (index >= UNI.fixedTotal) {
-    const b = FIELD.ensure(index - UNI.fixedTotal);
-    return { s: FIELD, layer: null, b, cx: b.cx, cy: b.cy };
-  }
-  for (let i = UNI.structures.length - 1; i >= 0; i--) {
-    const s = UNI.structures[i];
-    if (index >= s.start) {
-      for (let j = s.layers.length - 1; j >= 0; j--) {
-        const l = s.layers[j];
-        if (index >= l.start) {
-          const b = l.blocks[index - l.start];
-          return { s, layer: l, b, cx: s.cx + b.dx, cy: s.cy + b.dy };
-        }
+  const S = UNI.structures;
+  for (let i = S.length - 1; i >= 0; i--) {
+    const s = S[i];
+    if (index < s.start) continue;
+    if (s.kind === 'field') {
+      const b = s.ensure(index - s.start);
+      return { s, layer: s.layers[0], b, cx: b.cx, cy: b.cy };
+    }
+    for (let j = s.layers.length - 1; j >= 0; j--) {
+      const l = s.layers[j];
+      if (index >= l.start) {
+        const b = l.blocks[index - l.start];
+        return { s, layer: l, b, cx: s.cx + b.dx, cy: s.cy + b.dy };
       }
     }
   }
@@ -474,7 +588,7 @@ function blockAt(index) {
 }
 
 // ---------------------------------------------------------------------------
-// Grid drawing
+// Grid drawing + building animation
 // ---------------------------------------------------------------------------
 
 function stamp(info) {
@@ -482,7 +596,7 @@ function stamp(info) {
   gctx.fillStyle = info.b.color;
   gctx.fillRect(info.cx, info.cy, 1, 1);
   gctx.globalAlpha = 1;
-  if (info.b.twinkle && state.twinklers.length < 160) {
+  if (info.b.twinkle && state.twinklers.length < 180) {
     state.twinklers.push({ cx: info.cx, cy: info.cy, color: info.b.color, phase: Math.random() * 6.28, speed: 0.4 + Math.random() * 1.1 });
   }
 }
@@ -494,19 +608,15 @@ function placeBlock(index, announce) {
     state.flashes.push({ x: info.cx, y: info.cy, life: 1 });
     if (state.flashes.length > 50) state.flashes.shift();
   }
-  if (!announce || !info.layer) return;
+  if (!announce) return;
   const { s, layer } = info;
-  const layerEnd = layer.start + layer.blocks.length - 1;
+  const layerEnd = layer.start + (layer.blocks.length || s.count) - 1;
   const structEnd = s.start + s.count - 1;
   if (index === structEnd && s.kind === 'body') toast(`✨ ${cap(s.name)} has formed`);
   else if (index === layerEnd && layer.name) toast(`${cap(layer.name)} is complete`);
 }
 
 function cap(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
-
-// ---------------------------------------------------------------------------
-// Building animation
-// ---------------------------------------------------------------------------
 
 function advanceBuilding(dt) {
   const target = targetBlocks();
@@ -520,6 +630,7 @@ function advanceBuilding(dt) {
   }
   if (state.reduceMotion) {
     while (state.placed < target) placeBlock(state.placed++, true);
+    renderLocations();
     return;
   }
 
@@ -527,7 +638,6 @@ function advanceBuilding(dt) {
   while (state.sparks.length < wanted && state.placed + state.sparks.length < target) {
     const index = state.placed + state.sparks.length;
     const info = blockAt(index);
-    // Sparks appear from the void just outside the current view.
     const viewW = window.innerWidth / (BASE * cam.z);
     state.sparks.push({
       index,
@@ -581,7 +691,7 @@ function w2s(x, y) {
 }
 
 function clampCam() {
-  camTarget.z = Math.min(14, Math.max(0.2, camTarget.z));
+  camTarget.z = Math.min(14, Math.max(0.18, camTarget.z));
   camTarget.x = Math.min(WB, Math.max(0, camTarget.x));
   camTarget.y = Math.min(HB, Math.max(0, camTarget.y));
 }
@@ -595,14 +705,13 @@ window.addEventListener('mousemove', (e) => {
   const s = BASE * cam.z;
   camTarget.x -= (e.clientX - lastMouse.x) / s;
   camTarget.y -= (e.clientY - lastMouse.y) / s;
-  cam.x = camTarget.x; cam.y = camTarget.y; // pan feels 1:1, no easing lag
+  cam.x = camTarget.x; cam.y = camTarget.y;
   lastMouse = { x: e.clientX, y: e.clientY };
   clampCam();
 });
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
-  const factor = Math.exp(-e.deltaY * 0.0013);
-  zoomAt(e.clientX, e.clientY, factor);
+  zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0013));
 }, { passive: false });
 
 function zoomAt(px, py, factor) {
@@ -626,7 +735,6 @@ $('zoomIn').onclick = () => zoomAt(W / 2, H / 2, 1.45);
 $('zoomOut').onclick = () => zoomAt(W / 2, H / 2, 1 / 1.45);
 $('zoomReset').onclick = () => flyTo(HOME.x, HOME.y, HOME.z);
 
-// Touch: one finger pans, pinch zooms.
 let lastTouch = null;
 canvas.addEventListener('touchstart', (e) => { lastTouch = snapshotTouches(e); }, { passive: true });
 canvas.addEventListener('touchmove', (e) => {
@@ -669,11 +777,9 @@ function connect() {
       for (const s of msg.sessions) state.sessions.set(s.id, s);
       if (!state.loaded) {
         state.loaded = true;
-        // Materialize history instantly; animate only the newest stretch.
         state.placed = Math.max(0, targetBlocks() - 80);
         for (let i = 0; i < state.placed; i++) stamp(blockAt(i));
         renderLocations();
-        // ?goto=Earth&z=6 jumps straight to a location (shareable views).
         const params = new URLSearchParams(location.search);
         const goto = params.get('goto');
         if (goto) {
@@ -691,37 +797,132 @@ function connect() {
 }
 
 // ---------------------------------------------------------------------------
-// Locations panel — jump around the one universe
+// Atlas panel: dropdown groups, greyed-out locked locations, fact cards
 // ---------------------------------------------------------------------------
 
-let lastLocCount = -1;
+let lastAtlasKey = '';
+
+function locationState(s) {
+  const target = targetBlocks();
+  if (target >= s.start + s.count) return 'done';
+  if (target > s.start) return 'building';
+  return 'locked';
+}
 
 function renderLocations() {
   const target = targetBlocks();
-  const started = UNI.structures.filter((s) => target > s.start);
-  const showField = target > UNI.fixedTotal;
-  const count = started.length + (showField ? 1 : 0);
-  if (count === lastLocCount) return;
-  lastLocCount = count;
+  const key = UNI.structures.map((s) => locationState(s)[0]).join('') + [...state.collapsed].join(',');
+  if (key === lastAtlasKey) return;
+  lastAtlasKey = key;
 
   const list = $('locationList');
   list.innerHTML = '';
-  for (const s of started) {
-    const li = document.createElement('li');
-    const done = Math.min(target, s.start + s.count) - s.start;
-    li.textContent = cap(s.name);
-    if (done < s.count) li.classList.add('building');
-    li.onclick = () => {
-      const z = s.kind === 'ring' ? 0.8 : Math.min(9, Math.max(2.5, (H * 0.35) / (s.R * 2 * BASE)));
-      flyTo(s.cx, s.cy, s.kind === 'ring' ? 0.8 : z);
+  for (const group of ATLAS) {
+    const head = document.createElement('li');
+    head.className = 'group';
+    const open = !state.collapsed.has(group.title);
+    head.textContent = `${open ? '▾' : '▸'} ${group.title}`;
+    head.onclick = () => {
+      if (open) state.collapsed.add(group.title); else state.collapsed.delete(group.title);
+      lastAtlasKey = '';
+      renderLocations();
     };
-    list.appendChild(li);
+    list.appendChild(head);
+    if (!open) continue;
+
+    for (const name of group.names) {
+      const s = byName.get(name);
+      if (!s) continue;
+      const st = locationState(s);
+      const li = document.createElement('li');
+      li.className = 'loc ' + st;
+      li.textContent = cap(s.name);
+      li.onclick = () => {
+        showFact(s, st);
+        if (st !== 'locked') {
+          const z = s.kind === 'ring' ? 0.5 : (s.zoom || Math.min(9, Math.max(2.5, (H * 0.35) / (s.R * 2 * BASE))));
+          flyTo(s.cx, s.cy, z);
+        }
+      };
+      list.appendChild(li);
+    }
   }
-  if (showField) {
-    const li = document.createElement('li');
-    li.textContent = 'The Milky Way';
-    li.onclick = () => flyTo(1400, 700, 0.35);
-    list.appendChild(li);
+}
+
+function showFact(s, st) {
+  $('factTitle').textContent = cap(s.name);
+  let text = s.fact || '';
+  if (st === 'locked') {
+    const needed = (s.start + 1) * ENERGY_PER_BLOCK - totalEnergy();
+    text += ` — Not yet formed: ${fmt(Math.max(1, needed))} more energy until construction begins.`;
+  }
+  $('factText').textContent = text;
+  $('factCard').classList.add('show');
+}
+
+$('factClose').onclick = () => $('factCard').classList.remove('show');
+
+// ---------------------------------------------------------------------------
+// Ornaments: animated embellishments for completed bodies
+// ---------------------------------------------------------------------------
+
+function drawOrnaments(t, s) {
+  const earth = byName.get('Earth');
+  if (earth && structDone(earth)) {
+    // Two satellites + the ISS in inclined orbits.
+    const sats = [
+      { rx: earth.R + 5, ry: (earth.R + 5) * 0.45, sp: 0.55, ph: 0, c: '#dfe8f4', sz: 1 },
+      { rx: earth.R + 9, ry: (earth.R + 9) * 0.38, sp: -0.34, ph: 2.1, c: '#c8d8ee', sz: 1 },
+      { rx: earth.R + 3.4, ry: (earth.R + 3.4) * 0.5, sp: 0.85, ph: 4.2, c: '#f2e8c8', sz: 1.6 }, // ISS
+    ];
+    for (const sat of sats) {
+      const wx = earth.cx + Math.cos(t * sat.sp + sat.ph) * sat.rx;
+      const wy = earth.cy + Math.sin(t * sat.sp + sat.ph) * sat.ry;
+      const p = w2s(wx, wy);
+      if (p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > H + 20) continue;
+      const px = Math.max(2, s * sat.sz);
+      ctx.fillStyle = sat.c;
+      ctx.fillRect(p.x - px / 2, p.y - px / 2, px, px);
+      if (s > 4) { // solar panels visible up close
+        ctx.fillStyle = '#5d7ba8';
+        ctx.fillRect(p.x - px * 1.4, p.y - px * 0.25, px * 0.8, px * 0.5);
+        ctx.fillRect(p.x + px * 0.6, p.y - px * 0.25, px * 0.8, px * 0.5);
+      }
+    }
+    // A rocket launch every ~28 seconds.
+    const cycle = (t % 28);
+    if (cycle < 5) {
+      const prog = cycle / 5;
+      const ang = -Math.PI / 3;
+      const dist = earth.R + prog * prog * 60;
+      const wx = earth.cx + Math.cos(ang) * dist;
+      const wy = earth.cy + Math.sin(ang) * dist;
+      const p = w2s(wx, wy);
+      const px = Math.max(2, s);
+      ctx.fillStyle = '#e8eef8';
+      ctx.fillRect(p.x - px / 2, p.y - px, px, px * 2);
+      ctx.fillStyle = Math.sin(t * 30) > 0 ? '#ffb85c' : '#ff8f4d'; // flame flicker
+      ctx.fillRect(p.x - px / 2, p.y + px, px, px * (0.8 + 0.5 * Math.random()));
+    }
+  }
+
+  const moon = byName.get('the Moon');
+  if (moon && structDone(moon) && s > 5) {
+    const p = w2s(moon.cx + 1, moon.cy - moon.R - 1);
+    ctx.fillStyle = '#c8c8c2';
+    ctx.fillRect(p.x, p.y - s * 2, Math.max(1, s * 0.4), s * 2);       // pole
+    ctx.fillStyle = '#c05a5a';
+    ctx.fillRect(p.x + s * 0.4, p.y - s * 2, s * 1.4, s * 0.9);        // flag
+  }
+
+  const mars = byName.get('Mars');
+  if (mars && structDone(mars) && s > 5) {
+    const p = w2s(mars.cx + 3, mars.cy + mars.R - 1);
+    ctx.fillStyle = '#dfe8f4';
+    ctx.fillRect(p.x, p.y, s * 1.2, s * 0.7);                          // rover body
+    ctx.fillStyle = '#5a6474';
+    ctx.fillRect(p.x - s * 0.2, p.y + s * 0.7, s * 1.6, s * 0.35);     // wheels
+    ctx.fillRect(p.x + s * 0.4, p.y - s * 0.6, s * 0.2, s * 0.6);      // mast
   }
 }
 
@@ -754,7 +955,6 @@ function frame(now) {
   lastT = now;
   const t = now / 1000;
 
-  // Ease camera.
   cam.x += (camTarget.x - cam.x) * 0.12;
   cam.y += (camTarget.y - cam.y) * 0.12;
   cam.z += (camTarget.z - cam.z) * 0.14;
@@ -763,7 +963,6 @@ function frame(now) {
 
   const s = BASE * cam.z;
 
-  // Deep navy void.
   const bg = ctx.createLinearGradient(0, 0, 0, H);
   bg.addColorStop(0, '#04070f');
   bg.addColorStop(0.6, '#060b18');
@@ -771,13 +970,14 @@ function frame(now) {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  // Orbit paths for planets that have begun forming (faint, scientific).
+  // Orbit paths.
   const target = targetBlocks();
   const sunS = w2s(SUN.x, SUN.y);
   ctx.strokeStyle = 'rgba(110, 150, 220, 0.09)';
   ctx.lineWidth = 1;
   for (const st of UNI.structures) {
-    if (st.kind !== 'body' || st.name === 'the Sun' || st.name === 'the Moon' || target <= st.start) continue;
+    if (st.kind !== 'body' || st.name === 'the Sun' || st.name === 'the Moon' ||
+        st.name === 'the Andromeda Galaxy' || target <= st.start) continue;
     const r = Math.hypot(st.cx - SUN.x, st.cy - SUN.y) * s;
     if (r < 8 || r > Math.hypot(W, H) * 2) continue;
     ctx.beginPath();
@@ -785,14 +985,10 @@ function frame(now) {
     ctx.stroke();
   }
 
-  // The world grid, crisp.
   ctx.imageSmoothingEnabled = false;
   const vw = W / s, vh = H / s;
-  ctx.drawImage(grid,
-    cam.x - vw / 2, cam.y - vh / 2, vw, vh,
-    0, 0, W, H);
+  ctx.drawImage(grid, cam.x - vw / 2, cam.y - vh / 2, vw, vh, 0, 0, W, H);
 
-  // Twinkling blocks.
   if (!state.reduceMotion && s > 0.8) {
     for (const tw of state.twinklers) {
       const p = w2s(tw.cx, tw.cy);
@@ -805,7 +1001,6 @@ function frame(now) {
     ctx.globalAlpha = 1;
   }
 
-  // Landing flashes.
   for (let i = state.flashes.length - 1; i >= 0; i--) {
     const f = state.flashes[i];
     f.life -= dt / 450;
@@ -819,7 +1014,6 @@ function frame(now) {
   }
   ctx.globalAlpha = 1;
 
-  // Builder sparks.
   for (const sp of state.sparks) {
     for (let k = 0; k < sp.trail.length; k++) {
       const p = w2s(sp.trail[k].x, sp.trail[k].y);
@@ -835,13 +1029,14 @@ function frame(now) {
   }
   ctx.globalAlpha = 1;
 
-  // Labels: only when zoomed in enough to care.
+  drawOrnaments(t, s);
+
   if (cam.z >= 1.1) {
     ctx.font = '10px ui-monospace, Menlo, monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(150, 178, 220, 0.6)';
     for (const st of UNI.structures) {
-      if (target <= st.start || st.kind === 'ring') continue;
+      if (target <= st.start || st.kind === 'ring' || st.kind === 'field') continue;
       if (st.kind === 'star' && cam.z < 1.6) continue;
       const p = w2s(st.cx, st.cy + st.R + 4);
       if (p.x < -60 || p.x > W + 60 || p.y < -20 || p.y > H + 20) continue;
@@ -868,18 +1063,21 @@ function updateHUD() {
   $('zoomPct').textContent = Math.round(cam.z * 100) + '%';
 
   const target = targetBlocks();
-  const info = blockAt(Math.min(target, UNI.fixedTotal + FIELD_CAP - 1));
+  if (target >= UNI.total) {
+    $('milestoneLabel').textContent = 'the observable Tokenverse is complete… for now';
+    $('milestoneFill').style.width = '100%';
+    return;
+  }
+  const info = blockAt(target);
   if (info && info.layer) {
     const { s: st, layer } = info;
-    const done = Math.min(target, layer.start + layer.blocks.length) - layer.start;
+    const len = layer.blocks.length || st.count;
+    const done = target - layer.start;
     const label = layer.name || st.name;
-    const finishEnergy = (layer.start + layer.blocks.length) * ENERGY_PER_BLOCK - totalEnergy();
+    const finishEnergy = (layer.start + len) * ENERGY_PER_BLOCK - totalEnergy();
     $('milestoneLabel').textContent =
       `now forming: ${label} — ${fmt(Math.max(1, finishEnergy))} energy to finish`;
-    $('milestoneFill').style.width = Math.max(3, (done / layer.blocks.length) * 100) + '%';
-  } else {
-    $('milestoneLabel').textContent = 'now forming: the Milky Way — one star at a time';
-    $('milestoneFill').style.width = '100%';
+    $('milestoneFill').style.width = Math.max(3, (done / len) * 100) + '%';
   }
 }
 
@@ -891,7 +1089,7 @@ $('sidebarToggle').onclick = () => $('sidebar').classList.toggle('hidden');
 
 $('snapBtn').onclick = () => {
   const a = document.createElement('a');
-  a.download = 'the-known-universe.png';
+  a.download = 'tokenverse.png';
   a.href = canvas.toDataURL('image/png');
   a.click();
   toast('📸 Universe saved as an image');

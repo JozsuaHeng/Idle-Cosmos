@@ -1,62 +1,52 @@
-# 🌌 Token Universe
+# 🌌 Tokenverse
 
-Every token Claude burns becomes stardust.
+The universe, rebuilt one token at a time.
 
-Each Claude Code session is its own universe. When the session starts, that's
-the big bang. As Claude works on your prompts, the tokens it consumes turn
-into **cosmic energy** that builds the universe live on a webpage — stars
-first, then at milestones: a sun, planets, a comet, a ringed giant, nebulae,
-moons, an asteroid belt, a binary star, a distant galaxy, and finally a black
-hole.
+Every token Claude consumes — across **all** your Claude Code sessions —
+pools into cosmic energy that slowly reconstructs our real cosmic
+neighbourhood as pixel art: the Sun (core → radiative zone → convective
+zone → photosphere), then Earth built layer by geological layer (inner
+core, outer core, mantles, crust, oceans, atmosphere), the Moon, the
+planets, Halley's Comet, the asteroid and Kuiper belts, Voyager 1, the
+Oort Cloud, real nearby stars, the Milky Way's field of stars — and one
+day, the Andromeda Galaxy.
+
+It's also a little educational atlas: every location (including ones that
+haven't formed yet, shown greyed-out with a lock) carries a real
+astronomy fact. Completed worlds earn embellishments — satellites, the
+ISS and launching rockets around Earth, a flag on the Moon, a rover on
+Mars.
 
 ## How the "connection" works (and why it's safe)
 
-Claude Code already keeps a log of every session on your Mac at
-`~/.claude/projects/`, including exact token counts. This app just **reads
-those local files** — no API key, no login, no data leaving your computer.
+Claude Code keeps a log of every session on your Mac at
+`~/.claude/projects/`, including exact token counts. This app just
+**reads those local files** — no API key, no login, no data leaving your
+computer.
 
-## Cosmic energy
+## The numbers
 
-Raw token counts are weighted so a universe grows at a satisfying pace:
+- Energy = input tokens ×1 + output ×3 + cache-writes ×1 + cache-reads ×0.08
+- **~22,000 energy = 1 block** (`ENERGY_PER_BLOCK` in `public/app.js`) —
+  building is deliberately slow; a planet takes days of real usage.
+- The HUD shows this session's tokens and your all-time total.
 
-| Token type            | Weight | Why                                    |
-| --------------------- | ------ | -------------------------------------- |
-| Output tokens         | ×3     | Claude's actual "work"                 |
-| Input tokens          | ×1     | your prompts and files                 |
-| Cache writes          | ×1     | new context being remembered           |
-| Cache reads           | ×0.08  | cheap re-reads; would dwarf the rest   |
+## Controls
 
-Roughly **300 energy = 1 star**, and milestone objects appear from 1,000
-energy (first light) up to 2,500,000 (black hole).
+Drag to pan · scroll or pinch to zoom · zoom control bottom-right ·
+click atlas locations to fly there (and read their fact) ·
+`?goto=Earth&z=8` deep-links · 📸 saves a PNG.
 
 ## Running it
 
 ```bash
-node server.js
+node server.js       # http://localhost:4816
 ```
 
-Then open <http://localhost:4816>. With the hook installed (see below), you
-never need to do this — submitting any prompt in Claude Code starts the
-server and pops the page open automatically (only if it isn't already open).
+With the hook installed, any prompt in any Claude Code session starts the
+server and opens the page automatically (only if no tab is already open).
 
-## Saving universes
+**Uninstall the hook:** remove the `UserPromptSubmit` entry pointing at
+`token-universe/hooks/open-universe.sh` from `~/.claude/settings.json`.
 
-Universes are **deterministic**: the session id seeds the layout, so the same
-session always rebuilds the same universe. As long as the session log exists,
-its universe is "saved" and appears in the sidebar gallery. The 📸 button
-also downloads the current view as a PNG.
-
-## The auto-open hook
-
-A `UserPromptSubmit` hook in `~/.claude/settings.json` runs
-`hooks/open-universe.sh` on every prompt. It backgrounds everything and exits
-instantly, so it never slows your prompts down.
-
-**To uninstall:** open `~/.claude/settings.json` and delete the
-`UserPromptSubmit` entry that points at `token-universe/hooks/open-universe.sh`.
-
-## Stopping the server
-
-```bash
-kill $(lsof -ti tcp:4816)
-```
+**Stop the server:** `kill $(lsof -ti tcp:4816)`

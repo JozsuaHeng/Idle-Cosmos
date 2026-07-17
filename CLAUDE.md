@@ -1,4 +1,4 @@
-# Token Universe
+# Tokenverse
 
 A local web app that turns Claude Code token usage into ONE slowly-built
 pixel model of the real known universe. All sessions' tokens pool into

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Token Universe</title>
+<title>Tokenverse</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌌</text></svg>">
 <link rel="stylesheet" href="/style.css">
 </head>
@@ -12,16 +12,16 @@
 
 <aside id="sidebar">
   <header>
-    <h1>🌌 The Known Universe</h1>
-    <p class="tagline">One universe, built from every token. Drag to pan, scroll to zoom.</p>
+    <h1>🌌 Tokenverse</h1>
+    <p class="tagline">The universe, rebuilt one token at a time. Drag to pan, scroll to zoom, click a location to visit it.</p>
   </header>
-  <h2>Locations</h2>
+  <h2>Atlas</h2>
   <ul id="locationList"></ul>
 </aside>
-<button id="sidebarToggle" title="Toggle locations">☰</button>
+<button id="sidebarToggle" title="Toggle atlas">☰</button>
 
 <div id="hud">
-  <div id="universeName">The Known Universe</div>
+  <div id="universeName">Tokenverse</div>
   <div id="blocksVal"></div>
   <div class="stat">this session&ensp;<span id="sessTok">0</span> tokens · <span id="sessEnergy">0</span> energy</div>
   <div class="stat total">all time&ensp;<span id="totTok">0</span> tokens · <span id="totEnergy">0</span> energy</div>
@@ -30,6 +30,12 @@
 <div id="milestoneBar">
   <div id="milestoneLabel"></div>
   <div class="track"><div id="milestoneFill"></div></div>
+</div>
+
+<div id="factCard">
+  <button id="factClose" title="Close">×</button>
+  <h3 id="factTitle"></h3>
+  <p id="factText"></p>
 </div>
 
 <div id="zoomCtl">
