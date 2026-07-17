@@ -2,7 +2,7 @@
 
 A local web app that turns Claude Code token usage into ONE slowly-built
 pixel model of the real known universe. All sessions' tokens pool into
-"cosmic energy" (~40,000 energy = 1 block, `ENERGY_PER_BLOCK` in app.js);
+"cosmic energy" (~22,000 energy = 1 block, `ENERGY_PER_BLOCK` in app.js);
 blocks assemble the Sun and planets core-outward with real geological
 layers (Earth: inner core → outer core → mantles → crust → surface →
 atmosphere), then belts, named nearby stars, and the Milky Way field.
