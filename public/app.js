@@ -55,6 +55,9 @@ const BASE = 3;                    // css px per block at zoom 1
 const WB = 2400, HB = 1900;        // world size in blocks
 const SUN = { x: 500, y: 950 };
 const FIELD_CAP = 12_000;
+// Must mirror server.js's WEIGHTS — duplicated here so the info panel can
+// show the formula without a round trip to the server.
+const FORMULA_WEIGHTS = { input: 1, output: 3, cacheCreate: 1, cacheRead: 0.08 };
 
 // ---------------------------------------------------------------------------
 // Pixel-art builders
@@ -2110,6 +2113,76 @@ $('snapBtn').onclick = () => {
   a.click();
   toast('📸 Universe saved as an image');
 };
+
+// --- "Go to what's building" — jumps straight to the active construction site ---
+
+function flyToActive() {
+  const target = targetBlocks();
+  if (target >= UNI.total) { toast('Everything unlocked so far is fully built.'); return; }
+  const info = blockAt(target);
+  if (!info) return;
+  const st = info.s;
+  const z = st.kind === 'ring' || st.kind === 'field' ? 0.5
+    : (st.zoom || Math.min(9, Math.max(2.5, (H * 0.35) / (st.R * 2 * BASE))));
+  const pos = posOf(st);
+  flyToCentered(pos.x, pos.y, z);
+  state.infoPinned = true;
+  showInfo(st);
+}
+$('goToActive').onclick = flyToActive;
+
+// --- Formula panel: shows exactly how tokens become energy become blocks ---
+
+function renderFormula() {
+  const cur = currentSession();
+  const w = FORMULA_WEIGHTS;
+  $('formulaWeights').innerHTML = `
+    <dt>Output tokens</dt><dd>× ${w.output} <span class="why">(Claude's actual work — weighted heaviest)</span></dd>
+    <dt>Input tokens</dt><dd>× ${w.input} <span class="why">(your prompts and files)</span></dd>
+    <dt>Cache writes</dt><dd>× ${w.cacheCreate} <span class="why">(new context being remembered)</span></dd>
+    <dt>Cache reads</dt><dd>× ${w.cacheRead} <span class="why">(cheap re-reads; would dwarf the rest otherwise)</span></dd>
+  `;
+  $('formulaPace').textContent =
+    `${cap(paceName)} pace: ${ENERGY_PER_BLOCK.toLocaleString()} energy = 1 block (${PACES[paceName].blurb})`;
+  if (cur) {
+    const t = cur.tokens;
+    const e = cur.energy;
+    const blocks = Math.floor(e / ENERGY_PER_BLOCK);
+    $('formulaExample').innerHTML = `
+      <strong>Your current session, worked out:</strong><br>
+      ${t.input.toLocaleString()} input × ${w.input} + ${t.output.toLocaleString()} output × ${w.output} +
+      ${t.cacheCreate.toLocaleString()} cache-write × ${w.cacheCreate} + ${t.cacheRead.toLocaleString()} cache-read × ${w.cacheRead}<br>
+      = <strong>${Math.round(e).toLocaleString()} energy</strong> ÷ ${ENERGY_PER_BLOCK.toLocaleString()} per block
+      = <strong>${blocks.toLocaleString()} blocks</strong>
+    `;
+  } else {
+    $('formulaExample').textContent = 'No session data yet.';
+  }
+}
+
+$('formulaBtn').onclick = () => {
+  renderFormula();
+  $('formulaPanel').classList.toggle('show');
+};
+$('formulaClose').onclick = () => $('formulaPanel').classList.remove('show');
+
+// --- Auto-reload when the app's own files change on disk, so an already- ---
+// --- open tab never keeps running stale code after an edit.             ---
+
+let knownVersion = null;
+async function checkVersion() {
+  try {
+    const r = await fetch('/api/version');
+    const { mtime } = await r.json();
+    if (knownVersion === null) { knownVersion = mtime; return; }
+    if (mtime !== knownVersion) {
+      toast('✨ Updated — reloading…');
+      setTimeout(() => location.reload(), 1200);
+    }
+  } catch { /* server briefly restarting — ignore, try again next tick */ }
+}
+setInterval(checkVersion, 6000);
+checkVersion();
 
 resize();
 connect();

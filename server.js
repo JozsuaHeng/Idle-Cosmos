@@ -316,6 +316,21 @@ const server = http.createServer(async (req, res) => {
     return sendJSON(res, { sessions: sessionList() });
   }
 
+  if (url.pathname === '/api/version') {
+    // Lets the page notice when public/ files change (e.g. Claude edited
+    // them) and reload itself, so an already-open tab doesn't keep
+    // running stale JavaScript indefinitely.
+    try {
+      const stats = await Promise.all(
+        ['index.html', 'app.js', 'style.css'].map((f) => fsp.stat(path.join(PUBLIC_DIR, f)))
+      );
+      const mtime = Math.max(...stats.map((s) => s.mtimeMs));
+      return sendJSON(res, { mtime });
+    } catch {
+      return sendJSON(res, { mtime: 0 });
+    }
+  }
+
   if (url.pathname === '/events') {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
