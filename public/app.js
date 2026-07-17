@@ -1,5 +1,5 @@
 /**
- * The Patient Universe — a cosmos built slowly, one token at a time.
+ * Everything, Eventually — a cosmos built slowly, one token at a time.
  *
  * ONE universe, fed by the combined token usage of EVERY Claude Code
  * session, reconstructing our real cosmic neighbourhood in build order:
@@ -39,7 +39,18 @@ function mulberry32(seed) {
 // Tuning
 // ---------------------------------------------------------------------------
 
-const ENERGY_PER_BLOCK = 22_000;
+// Pace modes: how much cosmic energy buys one block. "patient" is the
+// intended slow-burn experience; the others are for the less patient —
+// same tokens, same universe, just more of it revealed. Switching is
+// lossless (everything is deterministic) and remembered per browser.
+const PACES = {
+  patient: { epb: 22_000, blurb: 'the slow burn — a planet takes days' },
+  steady: { epb: 8_000, blurb: 'about 3× faster' },
+  eager: { epb: 3_000, blurb: 'about 7× faster — instant gratification' },
+};
+let paceName = localStorage.getItem('pace');
+if (!PACES[paceName]) paceName = 'patient';
+let ENERGY_PER_BLOCK = PACES[paceName].epb;
 const BASE = 3;                    // css px per block at zoom 1
 const WB = 2400, HB = 1900;        // world size in blocks
 const SUN = { x: 500, y: 950 };
@@ -522,6 +533,7 @@ const state = {
   sessions: new Map(),
   placed: 0,
   sparks: [],
+  assemblies: [],       // fragments converging into a block at its cell
   twinklers: [],
   flashes: [],
   ambient: [],          // shooting stars, meteors, debris (screen-space)
@@ -537,12 +549,12 @@ const state = {
 const SPECKS = (() => {
   const r = mulberry32(0x5BECC5);
   const out = [];
-  for (let i = 0; i < 520; i++) {
+  for (let i = 0; i < 1500; i++) {
     out.push({
       x: r() * WB, y: r() * HB,
-      a: 0.04 + r() * 0.12,
+      a: 0.09 + r() * 0.22,
       c: r() < 0.7 ? '#c8cdd8' : '#ffffff',
-      tw: r() < 0.06 ? 0.3 + r() * 0.8 : 0,
+      tw: r() < 0.08 ? 0.3 + r() * 0.8 : 0,
       ph: r() * 6.28,
     });
   }
@@ -724,12 +736,16 @@ function advanceBuilding(dt) {
   // Only a huge backlog (reopening after days away) jumps ahead; otherwise
   // every block streams in visibly at a calm pace.
   if (backlog > 2000) {
+    state.sparks = [];
+    state.assemblies = [];
     const instant = backlog - 300;
     for (let i = 0; i < instant; i++) placeBlock(state.placed++, false);
     spritifyDone();
     backlog = target - state.placed;
   }
   if (state.reduceMotion) {
+    state.sparks = [];
+    state.assemblies = [];
     while (state.placed < target) placeBlock(state.placed++, true);
     spritifyDone();
     renderLocations();
@@ -737,13 +753,14 @@ function advanceBuilding(dt) {
   }
 
   // Steady build rate in blocks/second; rises only when far behind.
-  const rate = backlog > 400 ? Math.min(10, backlog / 60) : backlog > 60 ? 2.2 : 1.1;
+  const rate = backlog > 400 ? Math.min(10, backlog / 60) : backlog > 60 ? 2.6 : 1.3;
   state.budget = Math.min(6, state.budget + (rate * dt) / 1000);
 
-  const wanted = backlog > 40 ? 2 : 1;
-  while (state.budget >= 1 && state.sparks.length < wanted && state.placed + state.sparks.length < target) {
+  const inFlight = () => state.sparks.length + state.assemblies.length;
+  const wanted = backlog > 40 ? 3 : 2;
+  while (state.budget >= 1 && state.sparks.length < wanted && state.placed + inFlight() < target) {
     state.budget -= 1;
-    const index = state.placed + state.sparks.length;
+    const index = state.placed + inFlight();
     const info = blockAt(index);
     const viewW = window.innerWidth / (BASE * cam.z);
     state.sparks.push({
@@ -751,6 +768,7 @@ function advanceBuilding(dt) {
       x: cam.x + (Math.random() - 0.5) * viewW,
       y: cam.y - (window.innerHeight / (BASE * cam.z)) * 0.6,
       tx: info.cx + 0.5, ty: info.cy + 0.5,
+      color: SHARD_COLORS[(Math.random() * SHARD_COLORS.length) | 0],
       trail: [],
     });
   }
@@ -761,13 +779,20 @@ function advanceBuilding(dt) {
     if (sp.trail.length > 7) sp.trail.pop();
     const ddx = sp.tx - sp.x, ddy = sp.ty - sp.y;
     const dist = Math.hypot(ddx, ddy);
-    if (dist < 1.2) {
-      if (sp.index === state.placed) {
-        placeBlock(state.placed++, true);
-        state.sparks.splice(i, 1);
-        spritifyDone();
-        renderLocations();
-      }
+    if (dist < 6) {
+      // Arrival: burst into five smaller shards that assemble the block.
+      state.assemblies.push({
+        index: sp.index, cx: sp.tx, cy: sp.ty, t: 0, dur: 450,
+        frags: Array.from({ length: 5 }, () => {
+          const ang = Math.random() * Math.PI * 2;
+          const d0 = 5 + Math.random() * 11;
+          return {
+            x0: sp.tx + Math.cos(ang) * d0, y0: sp.ty + Math.sin(ang) * d0,
+            color: SHARD_COLORS[(Math.random() * SHARD_COLORS.length) | 0],
+          };
+        }),
+      });
+      state.sparks.splice(i, 1);
     } else {
       // Unhurried travel — watching the build should feel meditative.
       const step = Math.max(0.8, dist * 0.028) * (dt / 16.7);
@@ -775,7 +800,20 @@ function advanceBuilding(dt) {
       sp.y += (ddy / dist) * step;
     }
   }
+
+  // Assemblies finish in FIFO order (same duration), keeping `placed` contiguous.
+  for (let i = 0; i < state.assemblies.length; i++) state.assemblies[i].t += dt;
+  while (state.assemblies.length) {
+    const a = state.assemblies[0];
+    if (a.t < a.dur || a.index !== state.placed) break;
+    placeBlock(state.placed++, true);
+    state.assemblies.shift();
+    spritifyDone();
+    renderLocations();
+  }
 }
+
+const SHARD_COLORS = ['#e8eef8', '#ffffff', '#c8d4e8', '#9aa4b5', '#3a5a9e', '#5d7ba8'];
 
 // --- Ambient sky: shooting stars, meteors, drifting debris ---------------
 
@@ -813,7 +851,7 @@ function spawnAmbient(now) {
       life: 1, decay: 1 / (9 + Math.random() * 5),
     });
   }
-  state.nextAmbientAt = now + 4000 + Math.random() * 9000;
+  state.nextAmbientAt = now + 1500 + Math.random() * 3500;
 }
 
 function drawAmbient(now, dt) {
@@ -830,7 +868,7 @@ function drawAmbient(now, dt) {
     const fade = Math.min(1, a.life * 2.5);
     if (a.kind === 'shooting') {
       const grad = ctx.createLinearGradient(a.x, a.y, a.x - a.vx * 6, a.y - a.vy * 6);
-      grad.addColorStop(0, `rgba(232, 240, 252, ${0.55 * fade})`);
+      grad.addColorStop(0, `rgba(232, 240, 252, ${0.8 * fade})`);
       grad.addColorStop(1, 'rgba(232, 240, 252, 0)');
       ctx.strokeStyle = grad;
       ctx.lineWidth = 1.4;
@@ -842,16 +880,16 @@ function drawAmbient(now, dt) {
       a.trail.unshift({ x: a.x, y: a.y });
       if (a.trail.length > 9) a.trail.pop();
       for (let k = 0; k < a.trail.length; k++) {
-        ctx.globalAlpha = 0.32 * fade * (1 - k / a.trail.length);
+        ctx.globalAlpha = 0.5 * fade * (1 - k / a.trail.length);
         ctx.fillStyle = '#c8d4e8';
         ctx.fillRect(a.trail[k].x, a.trail[k].y, 2, 2);
       }
-      ctx.globalAlpha = 0.5 * fade;
+      ctx.globalAlpha = 0.75 * fade;
       ctx.fillStyle = '#e8eef8';
       ctx.fillRect(a.x - 1, a.y - 1, 2.5, 2.5);
     } else {
       a.spin += dt / 900;
-      ctx.globalAlpha = 0.22 * fade;
+      ctx.globalAlpha = 0.38 * fade;
       ctx.fillStyle = '#9aa4b5';
       for (let k = 0; k < 3; k++) {
         const ang = a.spin + (k * 6.28) / 3;
@@ -1241,15 +1279,32 @@ function frame(now) {
   for (const sp of state.sparks) {
     for (let k = 0; k < sp.trail.length; k++) {
       const p = w2s(sp.trail[k].x, sp.trail[k].y);
-      ctx.globalAlpha = 0.3 * (1 - k / sp.trail.length);
-      ctx.fillStyle = '#9fc0e8';
+      ctx.globalAlpha = 0.35 * (1 - k / sp.trail.length);
+      ctx.fillStyle = sp.color;
       const sz = 3 - k * 0.3;
       ctx.fillRect(p.x - sz / 2, p.y - sz / 2, sz, sz);
     }
     const p = w2s(sp.x, sp.y);
     ctx.globalAlpha = 0.95;
-    ctx.fillStyle = '#eaf2fc';
+    ctx.fillStyle = sp.color;
     ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+  }
+  ctx.globalAlpha = 1;
+
+  // Assembly shards: five small boxes converging into the block's cell.
+  for (const a of state.assemblies) {
+    const k = Math.min(1, a.t / a.dur);
+    const ease = 1 - (1 - k) * (1 - k);
+    for (const f of a.frags) {
+      const wx = f.x0 + (a.cx - f.x0) * ease;
+      const wy = f.y0 + (a.cy - f.y0) * ease;
+      const p = w2s(wx, wy);
+      if (p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > H + 20) continue;
+      ctx.globalAlpha = 0.4 + 0.5 * k;
+      ctx.fillStyle = f.color;
+      const sz = Math.max(1.5, s * 0.45) * (1 - k * 0.3);
+      ctx.fillRect(p.x - sz / 2, p.y - sz / 2, sz, sz);
+    }
   }
   ctx.globalAlpha = 1;
 
@@ -1311,6 +1366,8 @@ function updateHUD() {
   if (target >= UNI.total) {
     $('milestoneLabel').textContent = 'the observable universe is complete… for now';
     $('milestoneFill').style.width = '100%';
+    $('structLabel').textContent = 'every location fully built';
+    $('structFill').style.width = '100%';
     return;
   }
   const info = blockAt(target);
@@ -1323,6 +1380,10 @@ function updateHUD() {
     $('milestoneLabel').textContent =
       `now forming: ${label} — ${fmt(Math.max(1, finishEnergy))} energy to finish`;
     $('milestoneFill').style.width = Math.max(3, (done / len) * 100) + '%';
+    // Whole-structure completion (e.g. Earth overall).
+    const pct = ((target - st.start) / st.count) * 100;
+    $('structLabel').textContent = `${cap(st.name)} · ${pct.toFixed(1)}% built`;
+    $('structFill').style.width = Math.max(2, pct) + '%';
   }
 }
 
@@ -1332,9 +1393,43 @@ function updateHUD() {
 
 $('sidebarToggle').onclick = () => $('sidebar').classList.toggle('hidden');
 
+// --- Pace switching: rebuild the world at the new scale (lossless) ---------
+
+function setPace(name) {
+  if (!PACES[name] || name === paceName) return;
+  paceName = name;
+  localStorage.setItem('pace', name);
+  ENERGY_PER_BLOCK = PACES[name].epb;
+  state.sparks = [];
+  state.assemblies = [];
+  state.twinklers = [];
+  state.flashes = [];
+  state.budget = 0;
+  gctx.clearRect(0, 0, WB, HB);
+  for (const st of UNI.structures) { st.sprited = false; st.sprite = null; }
+  state.placed = Math.max(0, targetBlocks() - 80);
+  for (let i = 0; i < state.placed; i++) stamp(blockAt(i));
+  spritifyDone();
+  lastAtlasKey = '';
+  renderLocations();
+  updatePaceButtons();
+  toast(`Pace: ${name} — ${PACES[name].blurb}`);
+}
+
+function updatePaceButtons() {
+  for (const b of document.querySelectorAll('#paceCtl button')) {
+    b.classList.toggle('active', b.dataset.pace === paceName);
+  }
+}
+
+for (const b of document.querySelectorAll('#paceCtl button')) {
+  b.onclick = () => setPace(b.dataset.pace);
+}
+updatePaceButtons();
+
 $('snapBtn').onclick = () => {
   const a = document.createElement('a');
-  a.download = 'the-patient-universe.png';
+  a.download = 'everything-eventually.png';
   a.href = canvas.toDataURL('image/png');
   a.click();
   toast('📸 Universe saved as an image');

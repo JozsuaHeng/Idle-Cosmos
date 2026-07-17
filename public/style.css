@@ -237,3 +237,35 @@ body:has(#sidebar:not(.hidden)) #sidebarToggle { left: 242px; }
 #claudeStatus.paused .dot { background: #d8b45c; box-shadow: 0 0 6px rgba(216, 180, 92, 0.5); }
 #claudeStatus.idle { color: #5a70a0; }
 #claudeStatus.idle .dot { background: #3d4a68; }
+
+/* ---- pace switcher ---- */
+#paceCtl { margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(120, 155, 225, 0.12); }
+#paceCtl .modes { display: flex; gap: 4px; }
+#paceCtl button {
+  flex: 1;
+  padding: 6px 0;
+  border-radius: 5px;
+  border: 1px solid rgba(120, 155, 225, 0.2);
+  background: none;
+  color: #7089b8;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+}
+#paceCtl button:hover { background: rgba(130, 165, 235, 0.08); }
+#paceCtl button.active {
+  background: rgba(130, 165, 235, 0.15);
+  color: #dce8fa;
+  border-color: rgba(130, 165, 235, 0.45);
+}
+#paceCtl .paceNote { font-size: 10px; color: #4f628a; margin-top: 8px; line-height: 1.5; }
+
+/* ---- overall structure bar (second row of the bottom bar) ---- */
+#structLabel { font-size: 11px; color: #5a70a0; margin: 8px 0 4px; text-shadow: 0 1px 6px #000; }
+#milestoneBar .track.slim { height: 2.5px; }
+#structFill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #2e4a80, #6f9ad8);
+  transition: width 0.5s ease;
+}

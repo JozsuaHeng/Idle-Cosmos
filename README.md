@@ -1,4 +1,4 @@
-# 🌌 The Patient Universe
+# 🌌 Everything, Eventually
 
 A cosmos built slowly, one token at a time.
 
