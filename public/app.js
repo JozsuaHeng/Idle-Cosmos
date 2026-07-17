@@ -243,7 +243,7 @@ function buildSequence() {
 
   const sun = makeBody(rng, {
     name: 'the Sun', cx: SUN.x, cy: SUN.y, R: 40,
-    fact: 'The Sun holds 99.8% of the Solar System\'s mass. Light from its core takes up to 100,000 years to escape to the surface — then just 8 minutes to reach Earth.',
+    fact: 'The Sun is a G-type main-sequence star that has been fusing hydrogen into helium for 4.6 billion years, and has enough fuel to keep going for about 5 billion more. It holds 99.8% of the Solar System\'s mass — everything else, all eight planets and every moon and asteroid combined, is the leftover 0.2%. Photons born by fusion in its core take up to 100,000 years to random-walk their way out to the surface, but once they escape, that same light crosses the 150 million km to Earth in just 8 minutes. Its outer atmosphere, the corona, is bizarrely hundreds of times hotter than the visible surface beneath it, a puzzle solar physicists are still working out.',
     shells: [
       { frac: 0.25, name: "the Sun's core", colors: ['#fff7e2', '#fdf2d2'] },
       { frac: 0.55, name: 'the radiative zone', colors: ['#ffe9b4', '#fce2a2'] },
@@ -264,7 +264,7 @@ function buildSequence() {
   // Earth — extra detail: six real geological layers, then surface + air.
   S.push(makeBody(rng, {
     name: 'Earth', cx: planetX(200), cy: SUN.y, R: 16,
-    fact: 'The only known world with life. Earth\'s inner core is a solid iron ball nearly as hot as the Sun\'s surface; its spin in the molten outer core generates the magnetic field that shields us.',
+    fact: 'The only known world with life, and the only planet not named after a god. Earth\'s solid inner core is a ball of iron and nickel nearly as hot as the Sun\'s surface, kept solid only by immense pressure; the churn of the molten outer core around it acts like a dynamo, generating the magnetic field that deflects the solar wind and makes the atmosphere possible. About 71% of the surface is ocean, and plate tectonics constantly recycles the crust — a process no other planet in the Solar System is known to have. Earth is also the only planet whose name in English does not come from Greek or Roman mythology.',
     shells: [
       { frac: 0.19, name: "Earth's inner core", colors: ['#f2ead0', '#ece2c2'] },
       { frac: 0.35, name: "Earth's outer core", colors: ['#e8b04e', '#dfa444', '#e2aa49'] },
@@ -286,7 +286,7 @@ function buildSequence() {
 
   S.push(makeBody(rng, {
     name: 'the Moon', cx: planetX(200) + 24, cy: SUN.y - 14, R: 4,
-    fact: 'The Moon drifts 3.8 cm farther from Earth every year, and its gravity is what gives our oceans tides. Twelve people have walked on it.',
+    fact: 'The Moon likely formed when a Mars-sized body called Theia slammed into the young Earth about 4.5 billion years ago, flinging molten debris into orbit that coalesced into the Moon within perhaps a century. It is gradually spiralling away from us at 3.8 cm per year — roughly the rate fingernails grow — and its gravitational pull is what raises our ocean tides and has slowly locked its own rotation so the same face always points at Earth. Twelve astronauts walked on its surface during the Apollo missions between 1969 and 1972, and no human has returned since; the footprints and equipment they left behind will likely last millions of years, since there is no wind or water to erode them.',
     shells: [{ frac: 1.0, name: null, colors: ['#c9c9c4', '#b2b2ac'] }],
     surfaceName: null,
     surface: (dx, dy, d, R, r) => (r() < 0.22 ? '#8f8f8a' : null),
@@ -294,7 +294,7 @@ function buildSequence() {
 
   S.push(makeBody(rng, {
     name: 'Mercury', cx: planetX(85), cy: SUN.y, R: 7,
-    fact: 'The smallest planet, with an iron core filling about 85% of its radius. A Mercury day (sunrise to sunrise) lasts 176 Earth days — longer than its year.',
+    fact: 'The smallest and innermost planet, barely larger than our Moon, with an oversized iron core that fills roughly 85% of its radius — proportionally the biggest core of any planet, possibly because an ancient impact blasted away much of its rocky mantle. Mercury is tidally locked into a strange 3:2 spin-orbit resonance, so a single Mercury day, from sunrise to sunrise, lasts 176 Earth days — longer than its 88-day year, meaning the Sun would appear to rise, briefly reverse, and set again at certain points on its surface. Despite being closest to the Sun, it is not the hottest planet (Venus is), because it has almost no atmosphere to trap heat, so nights there plunge to -173°C.',
     shells: [
       { frac: 0.75, name: "Mercury's huge iron core", colors: ['#c8b08a', '#bfa67e'] },
       { frac: 1.0, name: "Mercury's mantle and crust", colors: ['#8a7d70', '#7d7166'] },
@@ -305,7 +305,7 @@ function buildSequence() {
 
   S.push(makeBody(rng, {
     name: 'Venus', cx: planetX(140), cy: SUN.y, R: 15,
-    fact: 'The hottest planet — about 465°C under a crushing CO₂ atmosphere, hot enough to melt lead. It spins backwards, so the Sun rises in the west.',
+    fact: 'The hottest planet in the Solar System, at roughly 465°C on the surface — hot enough to melt lead — thanks to a runaway greenhouse effect from its crushing atmosphere of carbon dioxide, which is 90 times denser than Earth\'s. Venus rotates backwards relative to almost every other planet, and so slowly that a single day there (243 Earth days) is longer than its year (225 Earth days); because of the retrograde spin, the Sun rises in the west and sets in the east. Its surface, hidden beneath permanent sulfuric-acid clouds, was mapped by radar from NASA\'s Magellan spacecraft in the early 1990s, revealing thousands of volcanoes — more than any other planet.',
     shells: [
       { frac: 0.5, name: "Venus's core", colors: ['#d8b878', '#cead6c'] },
       { frac: 0.85, name: "Venus's mantle", colors: ['#b0714a', '#a56843'] },
@@ -320,7 +320,7 @@ function buildSequence() {
 
   S.push(makeBody(rng, {
     name: 'Mars', cx: planetX(265), cy: SUN.y, R: 9,
-    fact: 'Home to Olympus Mons, a volcano nearly three times the height of Everest, and Valles Marineris, a canyon as long as the USA. Its red colour is literally rust.',
+    fact: 'Home to Olympus Mons, the largest volcano in the Solar System at nearly three times the height of Everest and wide enough to cover the state of Arizona, and to Valles Marineris, a canyon system stretching roughly the width of the continental United States. Its rusty red colour comes literally from iron oxide dust coating the surface. Mars once had rivers, lakes, and possibly oceans billions of years ago, and current rovers (Curiosity, Perseverance) are actively hunting for signs that microbial life may have existed there; Perseverance is caching rock samples for a future mission to bring back to Earth.',
     shells: [
       { frac: 0.45, name: "Mars's core", colors: ['#c89058', '#bd8750'] },
       { frac: 0.8, name: "Mars's mantle", colors: ['#a05a3a', '#955335'] },
@@ -341,17 +341,17 @@ function buildSequence() {
     '...ab...',
   ], {
     W: ['#eaf2fc', 1, true], a: ['#3a5178', 0.35], b: ['#5d7ba8', 0.55], c: ['#8fa8cc', 0.8],
-  }, 'The most famous comet, visible from Earth every 75–79 years (next: 2061). Its tail always points away from the Sun, pushed by the solar wind.', { zoom: 7 }));
+  }, 'The most famous comet, a ball of ice and dust roughly 15 km across that returns to the inner Solar System every 75–79 years, making it the only naked-eye comet likely to appear twice in a human lifetime. It has been observed since at least 240 BC, and its 1066 appearance was stitched into the Bayeux Tapestry, seen as an omen before the Battle of Hastings. Its tail always points away from the Sun regardless of which direction the comet is travelling, pushed outward by the solar wind and radiation pressure, not trailing behind it like smoke. Halley last passed by in 1986, when it was met by a small fleet of spacecraft, and will next be visible from Earth in 2061.', { zoom: 7 }));
 
   S.push(makeRingScatter(rng, {
     name: 'the asteroid belt', dist: 330, spread: 14, count: 700,
     colors: ['#8a8578', '#6f6b60', '#a09a8c'], alphaLo: 0.35,
-    fact: 'Millions of rocky leftovers from the Solar System\'s formation orbit between Mars and Jupiter — yet all of them together weigh less than our Moon.',
+    fact: 'Millions of rocky leftovers from the Solar System\'s formation orbit between Mars and Jupiter, debris that never managed to clump into a planet because Jupiter\'s enormous gravity kept stirring it up. Despite the vast numbers, the entire belt\'s mass adds up to less than our Moon, and roughly half of that total mass belongs to just one object — the dwarf planet Ceres. Spacecraft have flown through the belt many times without incident, since real distances between asteroids are typically millions of kilometres, nothing like the crowded fields shown in movies.',
   }));
 
   S.push(makeBody(rng, {
     name: 'Jupiter', cx: planetX(440), cy: SUN.y, R: 32,
-    fact: 'Larger than all other planets combined. The Great Red Spot is a storm wider than Earth that has raged for at least 300 years. Jupiter\'s gravity shields the inner planets from comets.',
+    fact: 'The largest planet, with more mass than all the other planets in the Solar System combined — over twice all of them put together. The Great Red Spot is a giant anticyclonic storm wider than Earth that has been raging for at least 300 years, though it has been visibly shrinking in recent decades. Jupiter\'s enormous gravity acts as a cosmic vacuum cleaner and shield, deflecting or capturing many comets and asteroids that might otherwise threaten the inner planets — famously, fragments of comet Shoemaker-Levy 9 crashed into it in 1994. It also has the strongest magnetic field of any planet, 20,000 times stronger than Earth\'s, and at least 95 known moons, including four large ones (Io, Europa, Ganymede, Callisto) discovered by Galileo in 1610.',
     shells: [
       { frac: 0.2, name: "Jupiter's rocky core", colors: ['#d8c8a8', '#cfbf9c'] },
       { frac: 0.55, name: 'metallic hydrogen', colors: ['#b89a78', '#ae9070'] },
@@ -369,7 +369,7 @@ function buildSequence() {
 
   const saturn = makeBody(rng, {
     name: 'Saturn', cx: planetX(560), cy: SUN.y, R: 26,
-    fact: 'So light it would float in water. Its rings are billions of chunks of nearly pure ice, up to house-sized, yet on average only about 10 metres thick.',
+    fact: 'The least dense planet in the Solar System — so light that it would float in water, if you could find a bathtub big enough. Its famous rings are made of billions of chunks of nearly pure water ice, ranging from dust grains to house-sized boulders, and although they stretch across hundreds of thousands of kilometres, they are on average only about 10 metres thick. The rings are thought to be relatively young in cosmic terms, perhaps only 100 to 400 million years old, possibly the shattered remains of a moon or comet torn apart by Saturn\'s gravity. Saturn also has a bizarre hexagonal jet-stream pattern swirling around its north pole, wide enough to fit four Earths inside it.',
     shells: [
       { frac: 0.25, name: "Saturn's core", colors: ['#d0c0a0', '#c7b795'] },
       { frac: 0.6, name: 'metallic hydrogen', colors: ['#c0ab8c', '#b7a284'] },
@@ -405,7 +405,7 @@ function buildSequence() {
 
   S.push(makeBody(rng, {
     name: 'Uranus', cx: planetX(680), cy: SUN.y, R: 17,
-    fact: 'Uranus rolls around the Sun on its side — its axis is tilted 98°, probably from an ancient collision — so each pole gets 42 years of sunlight, then 42 years of night.',
+    fact: 'Uranus rolls around the Sun almost completely on its side, tilted 98 degrees from vertical, most likely the result of a colossal collision with an Earth-sized object early in its history. Because of that extreme tilt, each pole gets a continuous 42-year "day" of sunlight followed by 42 years of darkness as the planet slowly orbits the Sun. It is the coldest planetary atmosphere in the Solar System despite not being the farthest from the Sun, with cloud-top temperatures near -224°C, and it has a faint system of rings, discovered in 1977, far dimmer than Saturn\'s. Uranus was the first planet discovered with a telescope, spotted by William Herschel in 1781 — every planet before it had been known since antiquity.',
     shells: [
       { frac: 0.3, name: "Uranus's rocky core", colors: ['#c8bca8', '#bfb39e'] },
       { frac: 0.8, name: 'an icy mantle', colors: ['#7ab8c8', '#70afc0'] },
@@ -418,7 +418,7 @@ function buildSequence() {
 
   S.push(makeBody(rng, {
     name: 'Neptune', cx: planetX(790), cy: SUN.y, R: 17,
-    fact: 'The windiest world: supersonic storms reach 2,100 km/h. Neptune was found by mathematics before telescopes — its gravity was tugging Uranus off course.',
+    fact: 'The windiest world in the Solar System, with supersonic storms clocked at up to 2,100 km/h, faster than the speed of sound. Neptune has the unusual distinction of being discovered by mathematics before telescopes: 19th-century astronomers noticed Uranus\'s orbit was being tugged off course by an unseen gravitational pull, calculated where the culprit must be, and pointed a telescope there in 1846 — finding Neptune within a single degree of the predicted position. Its largest moon, Triton, orbits backwards (retrograde) compared to Neptune\'s spin, strong evidence it is a captured object from the Kuiper belt, and it is slowly spiralling inward, meaning it will likely be torn apart to form a ring system in a few billion years.',
     shells: [
       { frac: 0.3, name: "Neptune's rocky core", colors: ['#c0b4a0', '#b7ab96'] },
       { frac: 0.8, name: 'an icy mantle', colors: ['#4a6fb8', '#4468ae'] },
@@ -434,7 +434,7 @@ function buildSequence() {
 
   S.push(makeBody(rng, {
     name: 'Pluto', cx: planetX(880), cy: SUN.y - 55, R: 3,
-    fact: 'A dwarf planet smaller than our Moon, with a heart-shaped nitrogen glacier (Tombaugh Regio). Reclassified from planet to dwarf planet in 2006.',
+    fact: 'A dwarf planet smaller than our Moon, discovered in 1930 by Clyde Tombaugh and treated as the ninth planet for 76 years before being reclassified as a "dwarf planet" in 2006, a decision that remains controversial among some astronomers. NASA\'s New Horizons spacecraft flew past Pluto in July 2015 after a nine-year journey, revealing a startlingly active world with a heart-shaped nitrogen-ice glacier called Tombaugh Regio, mountains of water ice, and possibly an underground ocean. Pluto and its largest moon Charon are so close in size and mass that they orbit a shared point in space located outside Pluto itself — technically a double dwarf-planet system.',
     shells: [{ frac: 1.0, name: null, colors: ['#c8b8a8', '#baa896'] }],
     surfaceName: null,
     surface: (dx, dy, d, R, r) => (dx <= 0 && dy >= 0 && r() < 0.6 ? '#e2d8ca' : null),
@@ -443,7 +443,7 @@ function buildSequence() {
   S.push(makeRingScatter(rng, {
     name: 'the Kuiper belt', dist: 880, spread: 30, count: 800,
     colors: ['#6f7a8a', '#5a6474', '#8a93a2'], alphaLo: 0.25,
-    fact: 'A vast ring of icy bodies beyond Neptune — home of Pluto and the source of short-period comets. It holds hundreds of thousands of objects over 100 km wide.',
+    fact: 'A vast, disc-shaped ring of icy bodies beyond Neptune\'s orbit, home to Pluto and countless other dwarf planets and frozen relics left over from the Solar System\'s formation. It is the source of most short-period comets — those that swing by the Sun in under 200 years, like Halley\'s Comet — flung inward when their orbits are disturbed. The Kuiper belt is estimated to hold hundreds of thousands of objects over 100 km wide and trillions of comets, and unlike the much smaller asteroid belt, it is roughly 20 times as wide and up to 200 times as massive.',
   }));
 
   // Voyager 1 — a tiny probe on its way out.
@@ -454,33 +454,43 @@ function buildSequence() {
     '.b.',
   ], {
     W: ['#eaf2fc', 1, true], a: ['#8fa8cc', 0.8], b: ['#5d7ba8', 0.5],
-  }, 'Launched in 1977, Voyager 1 is the farthest human-made object — over 24 billion km away, in interstellar space. It carries a golden record of Earth\'s sounds and music.', { zoom: 8 }));
+  }, 'Launched on 5 September 1977, Voyager 1 used a rare planetary alignment to fly past Jupiter and Saturn before being flung out of the Solar System entirely, and is now the most distant human-made object in existence, over 24 billion km away and still transmitting data on a radio signal that takes more than 22 hours to reach Earth. In 2012 it became the first spacecraft to enter interstellar space, crossing the heliopause where the Sun\'s solar wind gives way to the material between stars. It carries the Golden Record, a phonograph disc of Earth sounds, music from around the world, and greetings in 55 languages, intended for any spacefaring civilization that might one day find it — its plutonium power source is expected to keep its instruments running until around 2025.', { zoom: 8 }));
 
   S.push(makeRingScatter(rng, {
     name: 'the Oort Cloud', dist: 900, spread: 45, count: 550,
     colors: ['#4a5a78', '#3a4a66', '#5d7092'], alphaLo: 0.15,
-    fact: 'A hypothesised shell of trillions of icy objects surrounding the whole Solar System, halfway to the next star. Long-period comets fall inward from here.',
+    fact: 'A hypothesised spherical shell of trillions of icy objects surrounding the entire Solar System, extending perhaps halfway to the next star — so remote that objects there orbit the Sun over spans of thousands to millions of years. It is thought to be the source of long-period comets, ones that take centuries or millennia to return, which occasionally get nudged out of their distant orbits by the gravity of passing stars or the Milky Way\'s tides and fall inward toward the Sun. No spacecraft has ever reached it — even Voyager 1, the most distant human-made object, would need roughly 300 more years just to reach its inner edge.',
   }));
 
   const stars = [
-    ['Proxima Centauri', 1500, 1420, 1, '#e8a8a0', '#a86a64'],
-    ['Alpha Centauri', 1560, 1380, 2, '#f2ead2', '#b0a880'],
-    ["Barnard's Star", 1380, 520, 1, '#e0968a', '#9a6258'],
-    ['Sirius', 1700, 1150, 3, '#eaf2ff', '#8fa8d8'],
-    ['Epsilon Eridani', 1250, 1600, 1, '#f0c890', '#b08c58'],
-    ['Tau Ceti', 1820, 680, 1, '#f2dca8', '#b09c6a'],
-    ['Vega', 1980, 1280, 2, '#dce8ff', '#8098c8'],
-    ['Altair', 2050, 840, 2, '#e8eefc', '#94a4c8'],
-    ['Polaris', 1150, 250, 2, '#f2f0e2', '#a8a488'],
-    ['Betelgeuse', 2200, 520, 3, '#e88a5a', '#a85a38'],
-    ['Rigel', 2250, 1500, 3, '#cfe0ff', '#7890c0'],
+    ['Proxima Centauri', 1500, 1420, 1, '#e8a8a0', '#a86a64',
+      'Our nearest stellar neighbour after the Sun, a faint red dwarf just 4.24 light-years away — meaning even at Voyager 1\'s speed, reaching it would take over 70,000 years. Too dim to see with the naked eye, it was only discovered in 1915. It hosts at least two planets, including Proxima b, a rocky world orbiting within the star\'s habitable zone, making it one of the most tantalising targets in the search for life beyond our Solar System.'],
+    ['Alpha Centauri', 1560, 1380, 2, '#f2ead2', '#b0a880',
+      'A binary pair of Sun-like stars orbiting each other, forming a triple system together with the more distant Proxima Centauri. At 4.37 light-years away it is the closest star system to our own, bright enough to be one of the most prominent stars in the southern sky, though it appears as a single point of light to the naked eye — a telescope is needed to resolve the pair.'],
+    ["Barnard's Star", 1380, 520, 1, '#e0968a', '#9a6258',
+      'A small, ancient red dwarf about 6 light-years away, notable for having the fastest apparent motion across our sky of any star — it visibly shifts position against the background stars within a human lifetime, a phenomenon called Barnard\'s Star\'s "runaway" proper motion, discovered by astronomer E. E. Barnard in 1916.'],
+    ['Sirius', 1700, 1150, 3, '#eaf2ff', '#8fa8d8',
+      'The brightest star in Earth\'s night sky, 8.6 light-years away, appearing so brilliant partly because it is intrinsically luminous and partly because it is relatively close. It is actually a binary system: Sirius A, a hot white star, is orbited by Sirius B, a white dwarf — the collapsed, Earth-sized corpse of a star that has already burned through its nuclear fuel, packing roughly a Sun\'s worth of mass into a sphere the size of our planet.'],
+    ['Epsilon Eridani', 1250, 1600, 1, '#f0c890', '#b08c58',
+      'A young, Sun-like star just 10.5 light-years away, still surrounded by dusty debris discs where planet formation may be ongoing. Its youth (under a billion years old, compared to the Sun\'s 4.6 billion) and proximity have made it a favourite target in science fiction, most notably as the home system of Star Trek\'s Vulcans.'],
+    ['Tau Ceti', 1820, 680, 1, '#f2dca8', '#b09c6a',
+      'A Sun-like star just under 12 light-years away, one of the closest single stars similar in size and temperature to our own. It hosts several candidate planets, at least one within the habitable zone, and its calm, stable nature has long made it a popular hypothetical destination in science fiction and a real target for SETI radio searches.'],
+    ['Vega', 1980, 1280, 2, '#dce8ff', '#8098c8',
+      'One of the brightest stars in the northern sky, 25 light-years away, and the first star other than the Sun ever to be photographed, in 1850. Roughly twice the Sun\'s mass and 40 times its brightness, Vega spins so fast that it bulges outward at its equator. Around 12,000 CE, Earth\'s wobbling axis will point toward it, making Vega the "North Star" of that era.'],
+    ['Altair', 2050, 840, 2, '#e8eefc', '#94a4c8',
+      'A rapidly spinning white star 17 light-years away, so fast that it completes a full rotation in under 9 hours (versus the Sun\'s 27 days), flattening it into an oblate, egg-like shape roughly 25% wider at its equator than at its poles. It is one of the corners of the Summer Triangle, a prominent asterism visible from Earth.'],
+    ['Polaris', 1150, 250, 2, '#f2f0e2', '#a8a488',
+      'The North Star, a yellow supergiant roughly 430 light-years away that sits almost exactly above Earth\'s north pole, making it appear nearly motionless while every other star wheels around it nightly — an invaluable navigation aid for centuries. It is actually a triple star system, and it is a Cepheid variable, rhythmically brightening and dimming, a property astronomers use to measure cosmic distances.'],
+    ['Betelgeuse', 2200, 520, 3, '#e88a5a', '#a85a38',
+      'A red supergiant roughly 550 light-years away and so enormous that if placed at the centre of our Solar System, its surface would extend out past the orbit of Mars. It is nearing the end of its life and will one day explode as a supernova — possibly within the next 100,000 years, an eyeblink in cosmic terms — briefly becoming bright enough to be visible in Earth\'s daytime sky.'],
+    ['Rigel', 2250, 1500, 3, '#cfe0ff', '#7890c0',
+      'A blue supergiant roughly 860 light-years away and one of the most luminous stars visible to the naked eye, shining around 120,000 times brighter than the Sun. Despite its distance, it marks the foot of the constellation Orion and is easily seen even from light-polluted cities. Like Betelgeuse, it is massive enough that it will eventually end its life in a supernova.'],
   ];
-  for (const [name, x, y, size, c, dim] of stars) {
-    S.push(makeStar(rng, name, x, y, size, c, dim));
+  for (const [name, x, y, size, c, dim, fact] of stars) {
+    const st = makeStar(rng, name, x, y, size, c, dim);
+    st.fact = fact;
+    S.push(st);
   }
-  // Group fact for the whole neighbourhood (attached to the first star).
-  S[S.length - stars.length].fact =
-    'Proxima Centauri is our nearest star after the Sun — 4.24 light-years away. Even at Voyager 1\'s speed, reaching it would take over 70,000 years.';
 
   // The Milky Way's galactic field — lazy, huge.
   const fieldRng = mulberry32(0x9A1AC7);
@@ -488,7 +498,7 @@ function buildSequence() {
   const A = { x: 150, y: 1800 }, B = { x: 2300, y: 150 };
   S.push({
     name: 'the galactic field', kind: 'field', cx: 1400, cy: 950, R: 600, zoom: 0.35,
-    fact: 'The Milky Way holds 100–400 billion stars in a disc 100,000 light-years across. Every star you can see with the naked eye lives inside it. We orbit its centre once every 230 million years.',
+    fact: 'Our home galaxy is a barred spiral holding somewhere between 100 and 400 billion stars, arranged in a disc roughly 100,000 light-years across but only about 1,000 light-years thick. Every single star you can see with the naked eye on the darkest night lives inside it — the Milky Way itself is only visible as a hazy band because we are looking edge-on through our own disc from the inside. Our Sun sits in a minor spiral arm about 27,000 light-years from the centre, orbiting the galaxy\'s core once every roughly 230 million years — a span often called a "galactic year"; the last time the Sun was in its current position, dinosaurs had not yet appeared on Earth. At the very centre lurks Sagittarius A*, a supermassive black hole about 4 million times the mass of the Sun.',
     count: FIELD_CAP,
     layers: [{ name: 'the Milky Way', blocks: fieldBlocks }],
     ensure(n) {
@@ -528,7 +538,7 @@ function buildSequence() {
     S.push({
       name: 'TRAPPIST-1', cx: 240, cy: 1150, R: 14, kind: 'body', zoom: 6,
       layers: [{ name: null, blocks }],
-      fact: 'Just 40 light-years away: a cool red dwarf star with SEVEN Earth-sized rocky planets, three of them in the habitable zone where liquid water could exist. Discovered in 2016-17.',
+      fact: 'Just 40 light-years away, TRAPPIST-1 is a cool, dim red dwarf barely larger than Jupiter, yet it hosts a remarkable family of SEVEN Earth-sized rocky planets, all packed into an orbit tighter than Mercury\'s around our Sun — an observer standing on one planet could see the others as large disc-shaped neighbours in the sky. Three of the seven sit within the star\'s habitable zone, where temperatures could allow liquid water, making it one of the most exciting systems ever found for the search for life. It was discovered in 2016-17 using ground-based telescopes and confirmed with Hubble and Spitzer, and the James Webb Space Telescope is now studying several of its planets\' atmospheres in detail.',
     });
   }
 
@@ -550,7 +560,7 @@ function buildSequence() {
     S.push({
       name: 'the Pleiades', cx: 1050, cy: 280, R: 17, kind: 'body', zoom: 4,
       layers: [{ name: null, blocks }],
-      fact: 'The Seven Sisters (M45), 444 light-years away — a young cluster of hot blue stars about 100 million years old, drifting through a dust cloud that scatters their blue light. Visible to the naked eye; known to nearly every ancient culture.',
+      fact: 'The Seven Sisters (Messier 45), 444 light-years away, is an open cluster of over a thousand young, hot blue stars born from the same cloud of gas about 100 million years ago — infants by stellar standards, compared to our 4.6-billion-year-old Sun. The wispy blue haze visible in photographs is not leftover birth material but an unrelated dust cloud the cluster happens to be passing through, its fine particles scattering the stars\' blue light. Visible to the naked eye as a tight knot of stars, it has been recorded by nearly every ancient culture — mentioned in the Bible, Homer\'s Odyssey, and Japanese folklore (where it is called Subaru, the namesake and logo of the car company).',
     });
   }
 
@@ -571,7 +581,7 @@ function buildSequence() {
     S.push({
       name: 'the Orion Nebula', cx: 2080, cy: 1620, R: 20, kind: 'body', zoom: 3.5,
       layers: [{ name: null, blocks }],
-      fact: 'A stellar nursery 1,344 light-years away where new stars are being born right now, lit from within by the four young Trapezium stars. It is the middle "star" of Orion\'s sword, visible to the naked eye.',
+      fact: 'A vast stellar nursery 1,344 light-years away, one of the closest sites of massive star formation to Earth, where thousands of new stars are being born right now out of collapsing clouds of hydrogen gas. At its heart, the intense ultraviolet light of four young, massive stars called the Trapezium is carving out a glowing cavity in the surrounding nebula and illuminating it from within. Visible to the naked eye as the fuzzy middle "star" in Orion\'s sword, it has been one of the most photographed objects by the Hubble Space Telescope, revealing hundreds of protoplanetary discs — infant solar systems still in the process of forming.',
     });
   }
 
@@ -605,7 +615,7 @@ function buildSequence() {
     S.push({
       name: 'the Pillars of Creation', cx: 1480, cy: 1680, R: 18, kind: 'body', zoom: 3.5,
       layers: [{ name: null, blocks }],
-      fact: 'Towers of cold gas and dust in the Eagle Nebula, ~6,600 light-years away — the tallest is about 4 light-years high. New stars are forming inside them. Hubble\'s 1995 photograph of these pillars became one of the most famous images in science.',
+      fact: 'Towering columns of cold molecular hydrogen gas and dust within the Eagle Nebula, roughly 6,600 light-years away, where the tallest pillar stands about 4 light-years high — nearly the same distance as from our Sun to the next nearest star. Inside these dense clouds, gravity is actively collapsing pockets of gas into new stars, while the intense radiation from already-formed young stars nearby is slowly eroding the pillars away in a process called photoevaporation, meaning they are literally being sculpted and destroyed as new stars are born within them. Hubble\'s 1995 photograph of these pillars, later revisited in even sharper detail, became one of the most iconic and widely reproduced images in the history of astronomy.',
     });
   }
 
@@ -628,7 +638,7 @@ function buildSequence() {
     S.push({
       name: 'the Crab Nebula', cx: 760, cy: 170, R: 14, kind: 'body', zoom: 4,
       layers: [{ name: null, blocks }],
-      fact: 'The shredded remains of a star Chinese astronomers watched explode in 1054 AD — bright enough to see in daylight for three weeks. At its heart spins a pulsar: a city-sized neutron star rotating 30 times per second.',
+      fact: 'The shredded, still-expanding remains of a massive star that ended its life in a supernova explosion — an event Chinese, Japanese, and Arab astronomers all recorded witnessing in 1054 AD, when the new "guest star" became bright enough to see in broad daylight for over three weeks and remained visible at night for nearly two years. At its heart spins a pulsar: the crushed, city-sized core of the original star, now a neutron star so dense that a teaspoon of it would weigh billions of tonnes, spinning 30 times every second and sweeping a beam of radiation across space like a cosmic lighthouse. The nebula is still expanding outward at over 1,500 km/s, and studying it has been fundamental to understanding how the heavy elements that make up planets — and us — are forged and scattered by dying stars.',
     });
   }
 
@@ -637,8 +647,135 @@ function buildSequence() {
     name: 'the Andromeda Galaxy', cx: 350, cy: 280, R: 48,
     coreColors: ['#f2ecdc', '#e8dfc8'],
     armColors: ['#9fb0d8', '#7a8cc0', '#5d6f9e', '#48587e'],
-    fact: 'Our nearest major galaxy, 2.5 million light-years away, with about a trillion stars. It is approaching us at 110 km/s and will merge with the Milky Way in ~4.5 billion years.',
+    fact: 'Our nearest major galactic neighbour, 2.5 million light-years away — so distant that the light reaching us tonight left Andromeda before modern humans existed, yet still close enough to be visible to the naked eye as a faint smudge, making it the most distant object most people will ever see without a telescope. It is a spiral galaxy considerably larger than the Milky Way, home to roughly a trillion stars (compared to our few hundred billion), and it is not standing still: Andromeda is racing toward us at about 110 km/s under mutual gravity, and in roughly 4.5 billion years the two galaxies will collide and merge into a single giant elliptical galaxy some astronomers have nicknamed "Milkomeda." Despite the dramatic collision, the vast distances between individual stars mean it is extremely unlikely any stars will actually crash into one another.',
   }));
+
+  // The Triangulum Galaxy (M33) — third-largest in our Local Group.
+  S.push(makeSpiralGalaxy(rng, {
+    name: 'the Triangulum Galaxy', cx: 2320, cy: 260, R: 30,
+    coreColors: ['#eef2e0', '#e2e8cc'],
+    armColors: ['#9fd0b8', '#78b09a', '#568f7c', '#3d6a5e'],
+    fact: 'The third-largest member of our Local Group of galaxies, after Andromeda and the Milky Way, sitting about 2.73 million light-years away — making it very slightly closer to us than Andromeda, though considerably smaller, with only about 40 billion stars. Under exceptionally dark skies it is the most distant object reliably visible to the naked eye, a step further than Andromeda. It may be a satellite of the Andromeda Galaxy, gravitationally bound and orbiting it, and it hosts NGC 604, one of the largest known star-forming regions in the Local Group, far bigger than the Orion Nebula.',
+  }));
+
+  // The Whirlpool Galaxy (M51) — a grand-design spiral with a companion.
+  {
+    const gRng = mulberry32(0x77C1A0);
+    const whirl = makeSpiralGalaxy(gRng, {
+      name: 'the Whirlpool Galaxy', cx: 120, cy: 1700, R: 26,
+      coreColors: ['#f2ecd8', '#e8dcc0'],
+      armColors: ['#b0c8ec', '#84a4d8', '#5c7cb8', '#3f5c94'],
+      fact: 'One of the most photographed spiral galaxies in the sky, about 23 million light-years away, prized for its textbook-perfect spiral arms laced with pink star-forming regions and dark dust lanes. Its dramatic shape is no accident: the Whirlpool is caught mid-collision with a smaller companion galaxy, NGC 5195, visible tugging at the end of one spiral arm — the ongoing gravitational interaction is what has kept its arms so well-defined and triggered bursts of new star formation. It was the first galaxy ever recognised as having a spiral structure, by Lord Rosse in 1845, using what was then the largest telescope in the world.',
+    });
+    // A small companion blob at the end of one arm, bridged by a faint trail.
+    const compX = 24, compY = -20;
+    whirl.layers[0].blocks.push(
+      { dx: compX, dy: compY, color: '#e8dcc0' },
+      { dx: compX + 1, dy: compY - 1, color: '#dcd0b4', alpha: 0.8 },
+      { dx: compX - 1, dy: compY + 1, color: '#dcd0b4', alpha: 0.8 },
+      { dx: compX, dy: compY - 2, color: '#f0e6ce', twinkle: true },
+    );
+    for (let k = 1; k < 6; k++) {
+      whirl.layers[0].blocks.push({
+        dx: Math.round(compX * (1 - k / 7)), dy: Math.round(compY * (1 - k / 7)),
+        color: '#9fb0d8', alpha: 0.3,
+      });
+    }
+    S.push(whirl);
+  }
+
+  // The Virgo Cluster: the nearest large galaxy cluster, anchored by M87.
+  {
+    const vRng = mulberry32(0x5E11C0);
+    const blocks = [];
+    // A scatter of small elliptical/spiral member galaxies.
+    for (let i = 0; i < 22; i++) {
+      const gx = Math.round((vRng() - 0.5) * 46);
+      const gy = Math.round((vRng() - 0.5) * 32);
+      const size = 1 + (vRng() * 2 | 0);
+      const col = vRng() < 0.6 ? '#e8ddc4' : '#c8d4ec';
+      for (let dy = -size; dy <= size; dy++) {
+        for (let dx = -size; dx <= size; dx++) {
+          if (Math.hypot(dx, dy) <= size + 0.3) blocks.push({ dx: gx + dx, dy: gy + dy, color: col, alpha: 0.6 + vRng() * 0.3 });
+        }
+      }
+    }
+    // M87 at the centre: a giant elliptical with a famous relativistic jet.
+    for (const c of discCells(10)) {
+      blocks.push({ dx: c.dx, dy: c.dy, color: dither(vRng, ['#f2ecd8', '#e8e0c8', '#ddd4b8']), k: 1 });
+    }
+    for (let k = 1; k < 16; k++) {
+      blocks.push({ dx: 10 + k, dy: -Math.round(k * 0.15), color: '#cfe0ff', alpha: Math.max(0.2, 0.8 - k * 0.05), twinkle: k === 15 });
+    }
+    S.push({
+      name: 'the Virgo Cluster', cx: 2340, cy: 1740, R: 30, kind: 'body', zoom: 2.5,
+      layers: [{ name: null, blocks }],
+      fact: 'The nearest large galaxy cluster to us, roughly 54 million light-years away, containing well over 1,000 (by some counts nearer 2,000) galaxies bound together by gravity, with our own Local Group being drawn gently toward it. At its heart sits M87, a monstrous elliptical galaxy harbouring a supermassive black hole 6.5 billion times the Sun\'s mass — the very one captured in the Event Horizon Telescope\'s famous 2019 image, the first photograph ever taken of a black hole\'s silhouette. M87 also shoots out a jet of matter travelling at nearly the speed of light, visible stretching thousands of light-years from its core, powered by the black hole\'s intense gravity and magnetic fields.',
+    });
+  }
+
+  // The Bullet Cluster: two galaxy clusters colliding — the classic
+  // observational evidence for dark matter.
+  {
+    const bRng = mulberry32(0x8B11E7);
+    const blocks = [];
+    // Pink: hot X-ray gas, slowed by the collision, lagging behind.
+    for (let i = 0; i < 140; i++) {
+      const ang = bRng() * Math.PI * 2, rad = bRng() * 11;
+      blocks.push({ dx: Math.round(Math.cos(ang) * rad), dy: Math.round(Math.sin(ang) * rad * 0.7), color: '#e8829a', alpha: 0.3 + bRng() * 0.3 });
+    }
+    // Blue: dark matter (inferred via gravitational lensing), passed through unimpeded.
+    const lobes = [[-14, 0], [15, -2]];
+    for (const [lx, ly] of lobes) {
+      for (let i = 0; i < 55; i++) {
+        const ang = bRng() * Math.PI * 2, rad = bRng() * 8;
+        blocks.push({ dx: Math.round(lx + Math.cos(ang) * rad), dy: Math.round(ly + Math.sin(ang) * rad * 0.7), color: '#6f9adc', alpha: 0.35 + bRng() * 0.35 });
+      }
+    }
+    S.push({
+      name: 'the Bullet Cluster', cx: 130, cy: 300, R: 24, kind: 'body', zoom: 3,
+      layers: [{ name: null, blocks }],
+      fact: 'Two massive galaxy clusters caught in the act of colliding, about 3.7 billion light-years away, in an image that became one of the strongest pieces of observational evidence for dark matter. X-ray observations (shown in pink) reveal hot gas — the bulk of the clusters\' normal, visible matter — which collided, slowed down, and lagged behind during the impact. But gravitational lensing maps (shown in blue) reveal where most of the clusters\' actual mass sits, and it passed straight through the collision largely undisturbed, offset from the visible gas. That separation is very hard to explain unless most of the mass is invisible dark matter that barely interacts with anything, including itself.',
+    });
+  }
+
+  // The Hubble Ultra Deep Field: a tiny patch of "empty" sky revealed as
+  // packed with thousands of ancient, distant galaxies.
+  {
+    const hRng = mulberry32(0xF0C05E);
+    const blocks = [];
+    const cols = ['#e8dcc0', '#c8d4ec', '#e8b8a0', '#b8e0d0', '#d8c8e8', '#f2ecd8'];
+    for (let i = 0; i < 500; i++) {
+      const dx = Math.round((hRng() - 0.5) * 34);
+      const dy = Math.round((hRng() - 0.5) * 24);
+      blocks.push({ dx, dy, color: dither(hRng, cols), alpha: 0.35 + hRng() * 0.5, twinkle: hRng() < 0.02 });
+    }
+    S.push({
+      name: 'the Hubble Ultra Deep Field', cx: 2300, cy: 900, R: 20, kind: 'body', zoom: 3.5,
+      layers: [{ name: null, blocks }],
+      fact: 'In 2003–04, the Hubble Space Telescope was pointed at a patch of sky in the constellation Fornax so small and apparently empty that you could cover it with a grain of sand held at arm\'s length, and stared at it for over 11 days of total exposure time. The result stunned astronomers: nearly 10,000 galaxies packed into that single tiny patch, most never seen before, some so distant their light had been travelling for over 13 billion years — meaning we see them as they looked when the universe was less than a billion years old. The image demonstrated that essentially every direction in the sky, no matter how dark and empty it looks, is filled with countless galaxies once you look deep enough.',
+    });
+  }
+
+  // The Cosmic Microwave Background: the oldest light in the universe.
+  {
+    const cRng = mulberry32(0xC0B3B6);
+    const blocks = [];
+    for (const c of discCells(22)) {
+      const n = Math.sin(c.dx * 0.5 + 1.2) + Math.sin(c.dy * 0.6 - 0.7) + Math.sin((c.dx + c.dy) * 0.35) + (cRng() - 0.5) * 1.4;
+      const hot = n > 0.3;
+      const col = hot
+        ? (n > 1.1 ? '#e8703f' : '#d89a5a')
+        : (n < -1.1 ? '#3a5ba0' : '#5f7fb8');
+      blocks.push({ dx: c.dx, dy: c.dy, color: col, alpha: 0.55 + cRng() * 0.35, k: c.d });
+    }
+    blocks.sort((a, b) => a.k - b.k);
+    S.push({
+      name: 'the Cosmic Microwave Background', cx: 1200, cy: 1850, R: 24, kind: 'body', zoom: 2.5,
+      layers: [{ name: null, blocks }],
+      fact: 'The oldest light that can ever be observed: a faint afterglow left over from about 380,000 years after the Big Bang, when the universe had cooled enough for atoms to first form and for light to travel freely for the first time. It fills the entire sky in every direction and has been stretched by the universe\'s 13.8-billion-year expansion from blistering heat down to a chill of 2.7 degrees above absolute zero, now detectable only as faint microwave radiation. The subtle mottled pattern of warmer and cooler patches, mapped in exquisite detail by the COBE, WMAP, and Planck satellites, records the tiny density ripples in the early universe that would eventually grow, under gravity, into every galaxy, star, and planet — including this one. It marks the practical edge of the observable universe: nothing further back can be seen, because before this the universe was an opaque fog of plasma.',
+    });
+  }
 
   // Cumulative indices.
   let acc = 0;
@@ -675,7 +812,15 @@ const ATLAS = [
     ],
   },
   {
-    title: 'Beyond the Milky Way', names: ['the Andromeda Galaxy'],
+    title: 'Beyond the Milky Way', names: [
+      'the Andromeda Galaxy', 'the Triangulum Galaxy', 'the Whirlpool Galaxy',
+    ],
+  },
+  {
+    title: 'The Deep Universe', names: [
+      'the Virgo Cluster', 'the Bullet Cluster', 'the Hubble Ultra Deep Field',
+      'the Cosmic Microwave Background',
+    ],
   },
 ];
 
@@ -698,9 +843,16 @@ const STATS = {
   'Voyager 1': { Launched: '5 Sep 1977', Distance: '24+ billion km', Speed: '61,000 km/h', Status: 'in interstellar space', Cargo: 'the Golden Record' },
   'the Oort Cloud': { Location: '2,000–100,000 AU', Contents: 'trillions of icy bodies', Status: 'hypothesised, never imaged', Source: 'long-period comets' },
   'Proxima Centauri': { Type: 'red dwarf', Distance: '4.24 light-years', Planets: 'at least 2 (one in habitable zone)', 'Travel time': '70,000+ years at Voyager speed' },
+  'Alpha Centauri': { Type: 'binary Sun-like stars', Distance: '4.37 light-years', System: 'triple, with Proxima Centauri', Note: 'closest star system to the Sun' },
+  "Barnard's Star": { Type: 'red dwarf', Distance: '~6 light-years', Claim: 'fastest apparent motion of any star', Discovered: '1916' },
   Sirius: { Type: 'binary star system', Distance: '8.6 light-years', Brightness: 'brightest star in our night sky', Companion: 'Sirius B, a white dwarf' },
+  'Epsilon Eridani': { Type: 'young Sun-like star', Distance: '10.5 light-years', Age: '< 1 billion years', Note: 'sci-fi home of the Vulcans' },
+  'Tau Ceti': { Type: 'Sun-like star', Distance: '~12 light-years', Planets: 'several candidates', Note: 'popular SETI target' },
+  Vega: { Type: 'white star, fast spinner', Distance: '25 light-years', Claim: 'first star ever photographed (1850)', Future: 'North Star around 12,000 CE' },
+  Altair: { Type: 'white star, fast spinner', Distance: '17 light-years', Shape: 'flattened, egg-like', Note: 'corner of the Summer Triangle' },
   Polaris: { Type: 'yellow supergiant (triple system)', Distance: '~430 light-years', Role: 'the North Star', Note: 'almost exactly above Earth\'s north pole' },
   Betelgeuse: { Type: 'red supergiant', Distance: '~550 light-years', Size: 'would swallow Mars if placed at the Sun', Fate: 'will explode as a supernova' },
+  Rigel: { Type: 'blue supergiant', Distance: '~860 light-years', Brightness: '~120,000× the Sun', Fate: 'will end in a supernova' },
   'the galactic field': { Stars: '100–400 billion', Diameter: '~100,000 light-years', 'Our position': 'Orion Arm, ~27,000 ly from centre', 'Galactic year': '230 million years' },
   'TRAPPIST-1': { Type: 'ultra-cool red dwarf', Distance: '40 light-years', Planets: '7 rocky, Earth-sized', 'Habitable zone': '3 planets', Discovered: '2016–17' },
   'the Pleiades': { Type: 'open star cluster (M45)', Distance: '444 light-years', Age: '~100 million years', Stars: 'over 1,000 (7 visible)', Note: 'known to nearly every ancient culture' },
@@ -708,6 +860,12 @@ const STATS = {
   'the Pillars of Creation': { Location: 'Eagle Nebula (M16)', Distance: '~6,600 light-years', Height: 'tallest pillar ~4 light-years', Famous: 'Hubble photograph, 1995' },
   'the Crab Nebula': { Type: 'supernova remnant (M1)', Distance: '6,500 light-years', Exploded: 'seen from Earth in 1054 AD', Heart: 'a pulsar spinning 30×/second' },
   'the Andromeda Galaxy': { Type: 'spiral galaxy (M31)', Distance: '2.5 million light-years', Stars: '~1 trillion', Approach: '110 km/s toward us', Merger: 'in ~4.5 billion years' },
+  'the Triangulum Galaxy': { Type: 'spiral galaxy (M33)', Distance: '2.73 million light-years', Stars: '~40 billion', Group: 'possible Andromeda satellite', Note: 'most distant naked-eye object' },
+  'the Whirlpool Galaxy': { Type: 'spiral galaxy (M51)', Distance: '~23 million light-years', Companion: 'NGC 5195 (colliding)', Discovered: 'spiral structure seen 1845' },
+  'the Virgo Cluster': { Type: 'galaxy cluster', Distance: '~54 million light-years', Members: '1,000–2,000 galaxies', Anchor: 'M87 (supermassive black hole imaged 2019)' },
+  'the Bullet Cluster': { Type: 'colliding galaxy clusters', Distance: '~3.7 billion light-years', Famous: 'key evidence for dark matter', Method: 'X-ray + gravitational lensing' },
+  'the Hubble Ultra Deep Field': { Type: 'deep-sky image', Galaxies: '~10,000 in one small patch', Exposure: '11.3 days total', Distance: 'up to 13+ billion light-years' },
+  'the Cosmic Microwave Background': { Type: 'relic radiation', Age: '~380,000 years after the Big Bang', Temperature: '2.7 K (−270.4 °C)', Mapped: 'COBE, WMAP, Planck' },
 };
 
 // ---------------------------------------------------------------------------
@@ -1168,31 +1326,44 @@ function flyTo(x, y, z) {
   clampCam();
 }
 
-// Centre a point in the VISIBLE area (the atlas covers the left 230px).
+// Centre a point in the dead middle of the screen — no clever sidebar-offset
+// math, just the literal centre, so it's always predictable.
 function flyToCentered(x, y, z) {
-  const off = $('sidebar').classList.contains('hidden') ? 0 : 115 / (BASE * z);
-  flyTo(x - off, y, z);
+  flyTo(x, y, z);
 }
 
-// Home: frame everything that has been built so far.
+// Home: frame everything that has been built so far, with generous margin.
+// A naive tight bounding box lets a single large body (the Sun) dominate
+// the frame while small ones get pushed to the very edge — so we pad
+// each body proportionally, add an overall margin, and floor the zoom
+// so a couple of small objects don't get zoomed in on tightly either.
 function fitCompleted() {
   const target = targetBlocks();
   let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
+  let any = false;
   for (const st of UNI.structures) {
     if (target <= st.start) continue;
+    any = true;
     if (st.kind === 'field') {
       minx = Math.min(minx, 150); maxx = Math.max(maxx, 2300);
       miny = Math.min(miny, 150); maxy = Math.max(maxy, 1800);
       continue;
     }
     const pos = posOf(st);
-    minx = Math.min(minx, pos.x - st.R - 6); maxx = Math.max(maxx, pos.x + st.R + 6);
-    miny = Math.min(miny, pos.y - st.R - 6); maxy = Math.max(maxy, pos.y + st.R + 6);
+    const pad = st.R * 0.5 + 10;
+    minx = Math.min(minx, pos.x - st.R - pad); maxx = Math.max(maxx, pos.x + st.R + pad);
+    miny = Math.min(miny, pos.y - st.R - pad); maxy = Math.max(maxy, pos.y + st.R + pad);
   }
-  if (!isFinite(minx)) return flyTo(HOME.x, HOME.y, HOME.z);
-  const z = Math.min(2.2, Math.max(0.18,
-    Math.min((W - 280) / ((maxx - minx) * BASE), (H - 120) / ((maxy - miny) * BASE))));
-  flyToCentered((minx + maxx) / 2, (miny + maxy) / 2, z);
+  if (!any || !isFinite(minx)) return flyToCentered(HOME.x, HOME.y, HOME.z);
+
+  const cx = (minx + maxx) / 2, cy = (miny + maxy) / 2;
+  const MARGIN = 1.7;  // extra breathing room so nothing sits flush at an edge
+  const MIN_SPAN = 240; // never zoom in tight even for just one or two small bodies
+  const spanW = Math.max((maxx - minx) * MARGIN, MIN_SPAN);
+  const spanH = Math.max((maxy - miny) * MARGIN, MIN_SPAN * 0.6);
+  const z = Math.min(1.6, Math.max(0.18,
+    Math.min((W - 260) / (spanW * BASE), (H - 200) / (spanH * BASE))));
+  flyToCentered(cx, cy, z);
 }
 
 $('zoomIn').onclick = () => zoomAt(W / 2, H / 2, 1.45);
@@ -1410,6 +1581,27 @@ function drawOrnaments(t, s) {
       ctx.fillStyle = Math.sin(t * 30) > 0 ? '#ffb85c' : '#ff8f4d'; // flame flicker
       ctx.fillRect(p.x - px / 2, p.y + px, px, px * (0.8 + 0.5 * Math.random()));
     }
+    // City lights blinking on the night side, and an occasional lightning
+    // flash over the oceans.
+    if (s > 3) {
+      const cities = [[-6, 3], [4, -5], [-3, -6], [7, 2], [-8, -2]];
+      for (const [dx, dy] of cities) {
+        const p = w2s(e.x + dx, e.y + dy);
+        ctx.globalAlpha = 0.4 + 0.4 * Math.sin(t * 3 + dx * 7);
+        ctx.fillStyle = '#ffdf9a';
+        ctx.fillRect(p.x, p.y, Math.max(1, s * 0.3), Math.max(1, s * 0.3));
+      }
+      ctx.globalAlpha = 1;
+    }
+    const flashCyc = (t + 6) % 11;
+    if (flashCyc < 0.25 && s > 2) {
+      const fr = mulberry32(Math.floor(t / 11));
+      const p = w2s(e.x + (fr() - 0.5) * earth.R * 1.4, e.y + (fr() - 0.5) * earth.R * 1.4);
+      ctx.globalAlpha = (1 - flashCyc / 0.25) * 0.8;
+      ctx.fillStyle = '#f2f6ff';
+      ctx.fillRect(p.x - 1, p.y - 1, Math.max(2, s * 0.5), Math.max(2, s * 0.5));
+      ctx.globalAlpha = 1;
+    }
   }
 
   const moon = byName.get('the Moon');
@@ -1420,6 +1612,11 @@ function drawOrnaments(t, s) {
     ctx.fillRect(p.x, p.y - s * 2, Math.max(1, s * 0.4), s * 2);       // pole
     ctx.fillStyle = '#c05a5a';
     ctx.fillRect(p.x + s * 0.4, p.y - s * 2, s * 1.4, s * 0.9);        // flag
+    // A tiny rover trundling a slow loop near the landing site.
+    const rc = t % 24;
+    const rp = w2s(m.x - 1.5 + Math.cos(rc / 24 * Math.PI * 2) * 1.5, m.y + Math.sin(rc / 24 * Math.PI * 2) * 1);
+    ctx.fillStyle = '#d8d8d0';
+    ctx.fillRect(rp.x, rp.y, Math.max(1, s * 0.35), Math.max(1, s * 0.35));
   }
 
   const mars = byName.get('Mars');
@@ -1446,9 +1643,21 @@ function drawOrnaments(t, s) {
         ctx.globalAlpha = 1;
       }
     }
+    // A larger, rarer dust storm occasionally veils half the disc.
+    const stormCyc = t % 90;
+    if (stormCyc < 14 && s > 1.5) {
+      const veil = Math.sin((stormCyc / 14) * Math.PI);
+      const p = w2s(m.x - mars.R * 0.3, m.y);
+      ctx.globalAlpha = veil * 0.35;
+      ctx.fillStyle = '#c89468';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, mars.R * s * 0.7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
   }
 
-  // The Sun: an arcing solar prominence every ~17s, at a rotating spot.
+  // The Sun: arcing prominences, wandering sunspots, and rare bright flares.
   const sun = byName.get('the Sun');
   if (sun && structDone(sun)) {
     const cyc = t % 17;
@@ -1465,14 +1674,38 @@ function drawOrnaments(t, s) {
       }
       ctx.globalAlpha = 1;
     }
+    if (s > 1) {
+      for (let i = 0; i < 2; i++) {
+        const ang = t * 0.04 + i * 2.8;
+        const rad = sun.R * (0.35 + i * 0.2);
+        const p = w2s(SUN.x + Math.cos(ang) * rad, SUN.y + Math.sin(ang) * rad * 0.9);
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#b8792f';
+        ctx.fillRect(p.x - s * 0.6, p.y - s * 0.6, Math.max(2, s * 1.2), Math.max(2, s * 1.2));
+      }
+      ctx.globalAlpha = 1;
+    }
+    const flareCyc = t % 23;
+    if (flareCyc < 0.6) {
+      const seed = Math.floor(t / 23);
+      const fr = mulberry32(seed);
+      const ang = fr() * Math.PI * 2;
+      const p = w2s(SUN.x + Math.cos(ang) * sun.R * 0.7, SUN.y + Math.sin(ang) * sun.R * 0.7);
+      const bright = 1 - flareCyc / 0.6;
+      ctx.globalAlpha = bright;
+      ctx.fillStyle = '#fffbe8';
+      const r2 = Math.max(2, s) * (1 + (1 - bright) * 2);
+      ctx.fillRect(p.x - r2 / 2, p.y - r2 / 2, r2, r2);
+      ctx.globalAlpha = 1;
+    }
   }
 
-  // Mercury: a meteorite impact flash every ~13s.
+  // Mercury: a meteorite impact flash, plus the day/night terminator creeping by.
   const mercury = byName.get('Mercury');
   if (mercury && structDone(mercury)) {
+    const m = posOf(mercury);
     const cyc = t % 13;
     if (cyc < 0.9) {
-      const m = posOf(mercury);
       const seed = Math.floor(t / 13);
       const ang = seed * 2.7, rad = mercury.R * 0.55;
       const p = w2s(m.x + Math.cos(ang) * rad, m.y + Math.sin(ang) * rad);
@@ -1486,9 +1719,18 @@ function drawOrnaments(t, s) {
       ctx.strokeRect(p.x - r2, p.y - r2, r2 * 2, r2 * 2);
       ctx.globalAlpha = 1;
     }
+    if (s > 2) {
+      const termX = (((t * 0.6) % (mercury.R * 4)) - mercury.R * 2);
+      const p = w2s(m.x + termX, m.y);
+      ctx.globalAlpha = 0.28;
+      ctx.fillStyle = '#1a1410';
+      ctx.fillRect(p.x, p.y - mercury.R * s, Math.max(1.5, s * 0.5), mercury.R * s * 2);
+      ctx.globalAlpha = 1;
+    }
   }
 
-  // Venus: a pale cloud band slowly sweeping across the disc.
+  // Venus: a pale cloud band sweeping across the disc, plus flickers of
+  // lightning inside its thick sulfuric-acid clouds.
   const venus = byName.get('Venus');
   if (venus && structDone(venus) && s > 2) {
     const v = posOf(venus);
@@ -1501,20 +1743,42 @@ function drawOrnaments(t, s) {
       ctx.fillRect(p.x, p.y, Math.max(1.5, s * 0.8), Math.max(1.5, s * 1.6));
     }
     ctx.globalAlpha = 1;
+    const boltCyc = t % 6.5;
+    if (boltCyc < 0.15) {
+      const fr = mulberry32(Math.floor(t / 6.5));
+      const p = w2s(v.x + (fr() - 0.5) * venus.R * 1.3, v.y + (fr() - 0.5) * venus.R * 1.3);
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = '#fff8dc';
+      ctx.fillRect(p.x - 1, p.y - 1, Math.max(2, s * 0.5), Math.max(2, s * 0.5));
+      ctx.globalAlpha = 1;
+    }
   }
 
-  // Jupiter: Io whips around every ~9 seconds.
+  // Jupiter: Io and Europa orbit at different speeds; the Great Red Spot shimmers.
   const jupiter = byName.get('Jupiter');
   if (jupiter && structDone(jupiter)) {
     const j = posOf(jupiter);
-    const a = t * 0.7;
-    const p = w2s(j.x + Math.cos(a) * (jupiter.R + 5), j.y + Math.sin(a) * (jupiter.R + 5) * 0.4);
-    ctx.fillStyle = '#e8c86a';
-    const px = Math.max(2, s * 0.8);
-    ctx.fillRect(p.x - px / 2, p.y - px / 2, px, px);
+    const moons = [
+      { rad: jupiter.R + 5, sp: 0.7, ph: 0, c: '#e8c86a', sz: 0.8 },   // Io
+      { rad: jupiter.R + 9, sp: 0.42, ph: 1.6, c: '#d8c8a0', sz: 0.7 }, // Europa
+    ];
+    for (const mn of moons) {
+      const a = t * mn.sp + mn.ph;
+      const p = w2s(j.x + Math.cos(a) * mn.rad, j.y + Math.sin(a) * mn.rad * 0.4);
+      ctx.fillStyle = mn.c;
+      const px = Math.max(2, s * mn.sz);
+      ctx.fillRect(p.x - px / 2, p.y - px / 2, px, px);
+    }
+    if (s > 1.5) {
+      const p = w2s(j.x + 11, j.y + 12);
+      ctx.globalAlpha = 0.35 + 0.25 * Math.sin(t * 1.6);
+      ctx.fillStyle = '#e87a4a';
+      ctx.fillRect(p.x - s, p.y - s * 0.6, s * 2, s * 1.2);
+      ctx.globalAlpha = 1;
+    }
   }
 
-  // Saturn: a glint travelling along the rings.
+  // Saturn: a glint travelling the rings, plus the hexagonal polar storm pulsing.
   const saturn = byName.get('Saturn');
   if (saturn && structDone(saturn)) {
     const sa = posOf(saturn);
@@ -1524,9 +1788,18 @@ function drawOrnaments(t, s) {
     ctx.fillStyle = '#f2ecd8';
     ctx.fillRect(p.x - 1, p.y - 1, Math.max(2, s * 0.7), Math.max(2, s * 0.7));
     ctx.globalAlpha = 1;
+    if (s > 1.5) {
+      const hp = w2s(sa.x, sa.y - saturn.R * 0.65);
+      ctx.globalAlpha = 0.3 + 0.25 * Math.sin(t * 1.4);
+      ctx.strokeStyle = '#7fd8c8';
+      ctx.lineWidth = 1;
+      const hr = Math.max(2, s * 1.4);
+      ctx.strokeRect(hp.x - hr, hp.y - hr * 0.7, hr * 2, hr * 1.4);
+      ctx.globalAlpha = 1;
+    }
   }
 
-  // Uranus: a soft aurora pulse at the pole (it rolls on its side).
+  // Uranus: a slow polar aurora, plus a faint glint on its own (real, dim) rings.
   const uranus = byName.get('Uranus');
   if (uranus && structDone(uranus) && s > 1.5) {
     const u = posOf(uranus);
@@ -1535,9 +1808,16 @@ function drawOrnaments(t, s) {
     ctx.fillStyle = '#bff0e8';
     ctx.fillRect(p.x - s, p.y - s, s * 2, s * 2);
     ctx.globalAlpha = 1;
+    const ra = t * 0.3;
+    const rp = w2s(u.x + Math.cos(ra) * (uranus.R + 6), u.y + Math.sin(ra) * (uranus.R + 6));
+    ctx.globalAlpha = 0.4 + 0.3 * Math.sin(t * 4);
+    ctx.fillStyle = '#dff2ee';
+    ctx.fillRect(rp.x - 1, rp.y - 1, Math.max(1.5, s * 0.4), Math.max(1.5, s * 0.4));
+    ctx.globalAlpha = 1;
   }
 
-  // Neptune: Triton orbiting backwards + the storm brightening.
+  // Neptune: Triton orbiting backwards, a faster inner moon streaking by,
+  // and the storm brightening.
   const neptune = byName.get('Neptune');
   if (neptune && structDone(neptune)) {
     const n = posOf(neptune);
@@ -1546,6 +1826,11 @@ function drawOrnaments(t, s) {
     ctx.fillStyle = '#d8e4f0';
     const px = Math.max(2, s * 0.7);
     ctx.fillRect(p.x - px / 2, p.y - px / 2, px, px);
+    const a2 = t * 1.4;
+    const p2 = w2s(n.x + Math.cos(a2) * (neptune.R + 2.5), n.y + Math.sin(a2) * (neptune.R + 2.5) * 0.45);
+    ctx.fillStyle = '#a8c0e0';
+    const px2 = Math.max(1.5, s * 0.4);
+    ctx.fillRect(p2.x - px2 / 2, p2.y - px2 / 2, px2, px2);
     if (s > 2) {
       const sp = w2s(n.x - 2, n.y - 5);
       ctx.globalAlpha = 0.2 + 0.2 * Math.sin(t * 2.2);
