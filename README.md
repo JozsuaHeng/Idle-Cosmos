@@ -1,6 +1,6 @@
-# 🌌 Tokenverse
+# 🌌 The Patient Universe
 
-The universe, rebuilt one token at a time.
+A cosmos built slowly, one token at a time.
 
 Every token Claude consumes — across **all** your Claude Code sessions —
 pools into cosmic energy that slowly reconstructs our real cosmic

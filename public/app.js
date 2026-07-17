@@ -1,5 +1,5 @@
 /**
- * Tokenverse — the universe, rebuilt one token at a time.
+ * The Patient Universe — a cosmos built slowly, one token at a time.
  *
  * ONE universe, fed by the combined token usage of EVERY Claude Code
  * session, reconstructing our real cosmic neighbourhood in build order:
@@ -524,10 +524,59 @@ const state = {
   sparks: [],
   twinklers: [],
   flashes: [],
+  ambient: [],          // shooting stars, meteors, debris (screen-space)
+  nextAmbientAt: 0,
+  budget: 0,            // paced block-placement allowance
+  lastEventAt: 0,       // when Claude last did anything (for the status light)
   loaded: false,
   collapsed: new Set(),
   reduceMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
 };
+
+// Faint background specks so the void is never pure black.
+const SPECKS = (() => {
+  const r = mulberry32(0x5BECC5);
+  const out = [];
+  for (let i = 0; i < 520; i++) {
+    out.push({
+      x: r() * WB, y: r() * HB,
+      a: 0.04 + r() * 0.12,
+      c: r() < 0.7 ? '#c8cdd8' : '#ffffff',
+      tw: r() < 0.06 ? 0.3 + r() * 0.8 : 0,
+      ph: r() * 6.28,
+    });
+  }
+  return out;
+})();
+
+// Which bodies orbit once complete (dist/angle derived from placement).
+const ORBIT = new Map();
+for (const name of ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']) {
+  const st = byName.get(name);
+  const dx = st.cx - SUN.x, dy = st.cy - SUN.y;
+  const dist = Math.hypot(dx, dy);
+  ORBIT.set(name, { dist, ang0: Math.atan2(dy, dx), speed: 0.005 * Math.sqrt(200 / dist) });
+}
+{
+  const moon = byName.get('the Moon');
+  const earth = byName.get('Earth');
+  const dx = moon.cx - earth.cx, dy = moon.cy - earth.cy;
+  ORBIT.set('the Moon', { parent: 'Earth', dist: Math.hypot(dx, dy), ang0: Math.atan2(dy, dx), speed: 0.05 });
+}
+
+// Anchored to wall-clock time so planets keep drifting between visits.
+function orbitClock() { return Date.now() / 1000; }
+
+function posOf(st) {
+  const o = ORBIT.get(st.name);
+  if (!o || !st.sprited) return { x: st.cx, y: st.cy };
+  const a = o.ang0 - orbitClock() * o.speed;
+  if (o.parent) {
+    const p = posOf(byName.get(o.parent));
+    return { x: p.x + Math.cos(a) * o.dist, y: p.y + Math.sin(a) * o.dist };
+  }
+  return { x: SUN.x + Math.cos(a) * o.dist, y: SUN.y + Math.sin(a) * o.dist };
+}
 
 const HOME = { x: 750, y: 950, z: 0.5 };
 const cam = { ...HOME };
@@ -618,24 +667,82 @@ function placeBlock(index, announce) {
 
 function cap(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
 
+// --- Sprites: a finished orbiter lifts off the static grid and starts moving
+
+function restampRegion(x0, y0, x1, y1) {
+  const target = targetBlocks();
+  for (let i = 0; i < Math.min(state.placed, target); i++) {
+    const info = blockAt(i);
+    if (info.s.sprited) continue;
+    if (info.cx >= x0 && info.cx <= x1 && info.cy >= y0 && info.cy <= y1) {
+      gctx.globalAlpha = info.b.alpha != null ? info.b.alpha : 1;
+      gctx.fillStyle = info.b.color;
+      gctx.fillRect(info.cx, info.cy, 1, 1);
+    }
+  }
+  gctx.globalAlpha = 1;
+}
+
+function spritifyDone() {
+  const target = targetBlocks();
+  for (const st of UNI.structures) {
+    if (!ORBIT.has(st.name) || st.sprited || target < st.start + st.count) continue;
+    let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
+    for (const l of st.layers) {
+      for (const b of l.blocks) {
+        if (b.dx < minx) minx = b.dx;
+        if (b.dx > maxx) maxx = b.dx;
+        if (b.dy < miny) miny = b.dy;
+        if (b.dy > maxy) maxy = b.dy;
+      }
+    }
+    const w = maxx - minx + 1, h = maxy - miny + 1;
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const g = c.getContext('2d');
+    for (const l of st.layers) {
+      for (const b of l.blocks) {
+        g.globalAlpha = b.alpha != null ? b.alpha : 1;
+        g.fillStyle = b.color;
+        g.fillRect(b.dx - minx, b.dy - miny, 1, 1);
+      }
+    }
+    st.sprite = { canvas: c, ox: minx, oy: miny, w, h };
+    st.sprited = true;
+    const x0 = st.cx + minx, y0 = st.cy + miny, x1 = st.cx + maxx, y1 = st.cy + maxy;
+    gctx.clearRect(x0, y0, w, h);
+    state.twinklers = state.twinklers.filter((tw) => tw.cx < x0 || tw.cx > x1 || tw.cy < y0 || tw.cy > y1);
+    restampRegion(x0, y0, x1, y1); // put back neighbours caught in the clear
+  }
+}
+
 function advanceBuilding(dt) {
   const target = targetBlocks();
   let backlog = target - state.placed;
   if (backlog <= 0) { state.sparks = []; return; }
 
-  if (backlog > 120) {
-    const instant = backlog - 100;
+  // Only a huge backlog (reopening after days away) jumps ahead; otherwise
+  // every block streams in visibly at a calm pace.
+  if (backlog > 2000) {
+    const instant = backlog - 300;
     for (let i = 0; i < instant; i++) placeBlock(state.placed++, false);
+    spritifyDone();
     backlog = target - state.placed;
   }
   if (state.reduceMotion) {
     while (state.placed < target) placeBlock(state.placed++, true);
+    spritifyDone();
     renderLocations();
     return;
   }
 
-  const wanted = backlog > 20 ? 2 : 1;
-  while (state.sparks.length < wanted && state.placed + state.sparks.length < target) {
+  // Steady build rate in blocks/second; rises only when far behind.
+  const rate = backlog > 400 ? Math.min(10, backlog / 60) : backlog > 60 ? 2.2 : 1.1;
+  state.budget = Math.min(6, state.budget + (rate * dt) / 1000);
+
+  const wanted = backlog > 40 ? 2 : 1;
+  while (state.budget >= 1 && state.sparks.length < wanted && state.placed + state.sparks.length < target) {
+    state.budget -= 1;
     const index = state.placed + state.sparks.length;
     const info = blockAt(index);
     const viewW = window.innerWidth / (BASE * cam.z);
@@ -648,7 +755,6 @@ function advanceBuilding(dt) {
     });
   }
 
-  const speed = Math.min(2.4, 0.6 + backlog * 0.04);
   for (let i = state.sparks.length - 1; i >= 0; i--) {
     const sp = state.sparks[i];
     sp.trail.unshift({ x: sp.x, y: sp.y });
@@ -659,13 +765,100 @@ function advanceBuilding(dt) {
       if (sp.index === state.placed) {
         placeBlock(state.placed++, true);
         state.sparks.splice(i, 1);
+        spritifyDone();
         renderLocations();
       }
     } else {
-      const step = Math.max(1.2, dist * 0.05) * speed * (dt / 16.7);
+      // Unhurried travel — watching the build should feel meditative.
+      const step = Math.max(0.8, dist * 0.028) * (dt / 16.7);
       sp.x += (ddx / dist) * step;
       sp.y += (ddy / dist) * step;
     }
+  }
+}
+
+// --- Ambient sky: shooting stars, meteors, drifting debris ---------------
+
+function spawnAmbient(now) {
+  const roll = Math.random();
+  if (roll < 0.35) {
+    // Shooting star: a fast bright streak.
+    const fromTop = Math.random() < 0.7;
+    state.ambient.push({
+      kind: 'shooting',
+      x: Math.random() * W, y: fromTop ? -10 : Math.random() * H * 0.4,
+      vx: (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 5),
+      vy: 4 + Math.random() * 4,
+      life: 1, decay: 1 / (0.5 + Math.random() * 0.4),
+    });
+  } else if (roll < 0.7) {
+    // Meteor: slower, small, with a short trail.
+    const fromLeft = Math.random() < 0.5;
+    state.ambient.push({
+      kind: 'meteor',
+      x: fromLeft ? -10 : W + 10, y: Math.random() * H * 0.8,
+      vx: (fromLeft ? 1 : -1) * (0.8 + Math.random() * 1.2),
+      vy: 0.3 + Math.random() * 0.6,
+      life: 1, decay: 1 / (4 + Math.random() * 3),
+      trail: [],
+    });
+  } else {
+    // Debris: a tiny tumbling cluster drifting by.
+    state.ambient.push({
+      kind: 'debris',
+      x: Math.random() * W, y: -6,
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: 0.25 + Math.random() * 0.35,
+      spin: Math.random() * 6.28,
+      life: 1, decay: 1 / (9 + Math.random() * 5),
+    });
+  }
+  state.nextAmbientAt = now + 4000 + Math.random() * 9000;
+}
+
+function drawAmbient(now, dt) {
+  if (!state.reduceMotion && now >= state.nextAmbientAt) spawnAmbient(now);
+  for (let i = state.ambient.length - 1; i >= 0; i--) {
+    const a = state.ambient[i];
+    a.life -= (dt / 1000) * a.decay;
+    a.x += a.vx * (dt / 16.7);
+    a.y += a.vy * (dt / 16.7);
+    if (a.life <= 0 || a.x < -40 || a.x > W + 40 || a.y > H + 40) {
+      state.ambient.splice(i, 1);
+      continue;
+    }
+    const fade = Math.min(1, a.life * 2.5);
+    if (a.kind === 'shooting') {
+      const grad = ctx.createLinearGradient(a.x, a.y, a.x - a.vx * 6, a.y - a.vy * 6);
+      grad.addColorStop(0, `rgba(232, 240, 252, ${0.55 * fade})`);
+      grad.addColorStop(1, 'rgba(232, 240, 252, 0)');
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(a.x - a.vx * 6, a.y - a.vy * 6);
+      ctx.stroke();
+    } else if (a.kind === 'meteor') {
+      a.trail.unshift({ x: a.x, y: a.y });
+      if (a.trail.length > 9) a.trail.pop();
+      for (let k = 0; k < a.trail.length; k++) {
+        ctx.globalAlpha = 0.32 * fade * (1 - k / a.trail.length);
+        ctx.fillStyle = '#c8d4e8';
+        ctx.fillRect(a.trail[k].x, a.trail[k].y, 2, 2);
+      }
+      ctx.globalAlpha = 0.5 * fade;
+      ctx.fillStyle = '#e8eef8';
+      ctx.fillRect(a.x - 1, a.y - 1, 2.5, 2.5);
+    } else {
+      a.spin += dt / 900;
+      ctx.globalAlpha = 0.22 * fade;
+      ctx.fillStyle = '#9aa4b5';
+      for (let k = 0; k < 3; k++) {
+        const ang = a.spin + (k * 6.28) / 3;
+        ctx.fillRect(a.x + Math.cos(ang) * 2.4, a.y + Math.sin(ang) * 2.4, 1.6, 1.6);
+      }
+    }
+    ctx.globalAlpha = 1;
   }
 }
 
@@ -779,7 +972,11 @@ function connect() {
         state.loaded = true;
         state.placed = Math.max(0, targetBlocks() - 80);
         for (let i = 0; i < state.placed; i++) stamp(blockAt(i));
+        spritifyDone();
         renderLocations();
+        for (const s of state.sessions.values()) {
+          state.lastEventAt = Math.max(state.lastEventAt, s.updatedAt || 0);
+        }
         const params = new URLSearchParams(location.search);
         const goto = params.get('goto');
         if (goto) {
@@ -792,6 +989,7 @@ function connect() {
       }
     } else if (msg.type === 'update') {
       state.sessions.set(msg.session.id, msg.session);
+      state.lastEventAt = Date.now();
     }
   };
 }
@@ -841,7 +1039,8 @@ function renderLocations() {
         showFact(s, st);
         if (st !== 'locked') {
           const z = s.kind === 'ring' ? 0.5 : (s.zoom || Math.min(9, Math.max(2.5, (H * 0.35) / (s.R * 2 * BASE))));
-          flyTo(s.cx, s.cy, z);
+          const pos = posOf(s);
+          flyTo(pos.x, pos.y, z);
         }
       };
       list.appendChild(li);
@@ -869,6 +1068,7 @@ $('factClose').onclick = () => $('factCard').classList.remove('show');
 function drawOrnaments(t, s) {
   const earth = byName.get('Earth');
   if (earth && structDone(earth)) {
+    const e = posOf(earth);
     // Two satellites + the ISS in inclined orbits.
     const sats = [
       { rx: earth.R + 5, ry: (earth.R + 5) * 0.45, sp: 0.55, ph: 0, c: '#dfe8f4', sz: 1 },
@@ -876,8 +1076,8 @@ function drawOrnaments(t, s) {
       { rx: earth.R + 3.4, ry: (earth.R + 3.4) * 0.5, sp: 0.85, ph: 4.2, c: '#f2e8c8', sz: 1.6 }, // ISS
     ];
     for (const sat of sats) {
-      const wx = earth.cx + Math.cos(t * sat.sp + sat.ph) * sat.rx;
-      const wy = earth.cy + Math.sin(t * sat.sp + sat.ph) * sat.ry;
+      const wx = e.x + Math.cos(t * sat.sp + sat.ph) * sat.rx;
+      const wy = e.y + Math.sin(t * sat.sp + sat.ph) * sat.ry;
       const p = w2s(wx, wy);
       if (p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > H + 20) continue;
       const px = Math.max(2, s * sat.sz);
@@ -895,8 +1095,8 @@ function drawOrnaments(t, s) {
       const prog = cycle / 5;
       const ang = -Math.PI / 3;
       const dist = earth.R + prog * prog * 60;
-      const wx = earth.cx + Math.cos(ang) * dist;
-      const wy = earth.cy + Math.sin(ang) * dist;
+      const wx = e.x + Math.cos(ang) * dist;
+      const wy = e.y + Math.sin(ang) * dist;
       const p = w2s(wx, wy);
       const px = Math.max(2, s);
       ctx.fillStyle = '#e8eef8';
@@ -908,7 +1108,8 @@ function drawOrnaments(t, s) {
 
   const moon = byName.get('the Moon');
   if (moon && structDone(moon) && s > 5) {
-    const p = w2s(moon.cx + 1, moon.cy - moon.R - 1);
+    const m = posOf(moon);
+    const p = w2s(m.x + 1, m.y - moon.R - 1);
     ctx.fillStyle = '#c8c8c2';
     ctx.fillRect(p.x, p.y - s * 2, Math.max(1, s * 0.4), s * 2);       // pole
     ctx.fillStyle = '#c05a5a';
@@ -917,7 +1118,8 @@ function drawOrnaments(t, s) {
 
   const mars = byName.get('Mars');
   if (mars && structDone(mars) && s > 5) {
-    const p = w2s(mars.cx + 3, mars.cy + mars.R - 1);
+    const m = posOf(mars);
+    const p = w2s(m.x + 3, m.y + mars.R - 1);
     ctx.fillStyle = '#dfe8f4';
     ctx.fillRect(p.x, p.y, s * 1.2, s * 0.7);                          // rover body
     ctx.fillStyle = '#5a6474';
@@ -970,6 +1172,18 @@ function frame(now) {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
+  // Faint background specks so the void is never pure black.
+  for (const spk of SPECKS) {
+    const p = w2s(spk.x, spk.y);
+    if (p.x < -4 || p.x > W + 4 || p.y < -4 || p.y > H + 4) continue;
+    let a = spk.a;
+    if (spk.tw) a *= 0.5 + 0.5 * Math.sin(t * spk.tw + spk.ph);
+    ctx.globalAlpha = a;
+    ctx.fillStyle = spk.c;
+    ctx.fillRect(p.x, p.y, 1.5, 1.5);
+  }
+  ctx.globalAlpha = 1;
+
   // Orbit paths.
   const target = targetBlocks();
   const sunS = w2s(SUN.x, SUN.y);
@@ -988,6 +1202,16 @@ function frame(now) {
   ctx.imageSmoothingEnabled = false;
   const vw = W / s, vh = H / s;
   ctx.drawImage(grid, cam.x - vw / 2, cam.y - vh / 2, vw, vh, 0, 0, W, H);
+
+  // Finished bodies ride above the grid, drifting along their orbits.
+  for (const st of UNI.structures) {
+    if (!st.sprited) continue;
+    const pos = posOf(st);
+    const p = w2s(pos.x + st.sprite.ox, pos.y + st.sprite.oy);
+    const wpx = st.sprite.w * s, hpx = st.sprite.h * s;
+    if (p.x > W + 60 || p.y > H + 60 || p.x + wpx < -60 || p.y + hpx < -60) continue;
+    ctx.drawImage(st.sprite.canvas, p.x, p.y, wpx, hpx);
+  }
 
   if (!state.reduceMotion && s > 0.8) {
     for (const tw of state.twinklers) {
@@ -1030,6 +1254,7 @@ function frame(now) {
   ctx.globalAlpha = 1;
 
   drawOrnaments(t, s);
+  drawAmbient(now, dt);
 
   if (cam.z >= 1.1) {
     ctx.font = '10px ui-monospace, Menlo, monospace';
@@ -1038,7 +1263,8 @@ function frame(now) {
     for (const st of UNI.structures) {
       if (target <= st.start || st.kind === 'ring' || st.kind === 'field') continue;
       if (st.kind === 'star' && cam.z < 1.6) continue;
-      const p = w2s(st.cx, st.cy + st.R + 4);
+      const pos = posOf(st);
+      const p = w2s(pos.x, pos.y + st.R + 4);
       if (p.x < -60 || p.x > W + 60 || p.y < -20 || p.y > H + 20) continue;
       ctx.fillText(cap(st.name), p.x, p.y + 8);
     }
@@ -1062,9 +1288,28 @@ function updateHUD() {
   }
   $('zoomPct').textContent = Math.round(cam.z * 100) + '%';
 
+  // Claude activity light.
+  const age = state.lastEventAt ? Date.now() - state.lastEventAt : Infinity;
+  const backlog = targetBlocks() - state.placed;
+  const el = $('claudeStatus');
+  if (age < 20_000) {
+    el.className = 'working';
+    $('statusText').textContent = backlog > 0
+      ? `Claude is working · ${backlog.toLocaleString()} block${backlog === 1 ? '' : 's'} inbound`
+      : 'Claude is working…';
+  } else if (age < 4 * 60_000) {
+    el.className = 'paused';
+    $('statusText').textContent = backlog > 0
+      ? `Claude has paused · ${backlog.toLocaleString()} blocks still landing`
+      : 'Claude has paused';
+  } else {
+    el.className = 'idle';
+    $('statusText').textContent = 'Claude is idle — all prompts finished';
+  }
+
   const target = targetBlocks();
   if (target >= UNI.total) {
-    $('milestoneLabel').textContent = 'the observable Tokenverse is complete… for now';
+    $('milestoneLabel').textContent = 'the observable universe is complete… for now';
     $('milestoneFill').style.width = '100%';
     return;
   }
@@ -1089,7 +1334,7 @@ $('sidebarToggle').onclick = () => $('sidebar').classList.toggle('hidden');
 
 $('snapBtn').onclick = () => {
   const a = document.createElement('a');
-  a.download = 'tokenverse.png';
+  a.download = 'the-patient-universe.png';
   a.href = canvas.toDataURL('image/png');
   a.click();
   toast('📸 Universe saved as an image');
