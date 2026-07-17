@@ -16,7 +16,7 @@
  * Mars). Every location carries a short educational fact — including
  * locked, not-yet-formed ones, shown greyed out in the atlas.
  *
- * ~22,000 cosmic energy = 1 block. Drag to pan, wheel to zoom,
+ * ~22,000 cosmic energy = 1 block (Patient pace; Steady / Eager reveal more of the same deterministic universe). Drag to pan, wheel to zoom,
  * ?goto=Earth&z=6 deep-links. Deterministic: same universe every time.
  */
 'use strict';
@@ -45,8 +45,8 @@ function mulberry32(seed) {
 // lossless (everything is deterministic) and remembered per browser.
 const PACES = {
   patient: { epb: 22_000, blurb: 'the slow burn — a planet takes days' },
-  steady: { epb: 8_000, blurb: 'about 3× faster' },
-  eager: { epb: 3_000, blurb: 'about 7× faster — instant gratification' },
+  steady: { epb: 15_000, blurb: '×1.5 faster' },
+  eager: { epb: 11_000, blurb: '×2 faster' },
 };
 let paceName = localStorage.getItem('pace');
 if (!PACES[paceName]) paceName = 'patient';
@@ -54,7 +54,7 @@ let ENERGY_PER_BLOCK = PACES[paceName].epb;
 const BASE = 3;                    // css px per block at zoom 1
 const WB = 2400, HB = 1900;        // world size in blocks
 const SUN = { x: 500, y: 950 };
-const FIELD_CAP = 30_000;
+const FIELD_CAP = 12_000;
 
 // ---------------------------------------------------------------------------
 // Pixel-art builders
@@ -126,7 +126,7 @@ function makeRingScatter(rng, cfg) {
     const rad = dist + (rng() + rng() - 1) * spread;
     blocks.push({
       dx: Math.round(Math.cos(ang) * rad),
-      dy: Math.round(Math.sin(ang) * rad),
+      dy: Math.round(Math.sin(ang) * rad * 0.6), // same 3/4 tilt as the orbits
       color: dither(rng, colors),
       alpha: alphaLo + rng() * 0.4,
       ang,
@@ -199,6 +199,44 @@ function makeSpiralGalaxy(rng, cfg) {
 
 function planetX(dist) { return SUN.x + dist; }
 
+// Hand-drawn hemisphere map for Earth (33×33, '.'=ocean, g=land, d=desert,
+// i=ice) — Americas on the left, Africa/Europe centre-right, polar caps.
+const EARTH_MAP = [
+  '.................................',
+  '.............iiiiiii.............',
+  '..........iiiiiiiiiiiii..........',
+  '.......iiiiiii..iiiiiiii.........',
+  '......ggg.iii......gggggg........',
+  '.....ggggg.......ggggggggggg.....',
+  '....gggggggg....gggggggggggggg...',
+  '....ggggggggg....ggggggggggggg...',
+  '.....gggggggg.....gggddddggggg...',
+  '......gggggg......ggddddddggg....',
+  '.......ggggg.......gdddddgggg....',
+  '........ggg........dddddddgg.....',
+  '.........gg.......gddddddggg.....',
+  '..........g.......ggggggggg......',
+  '..................gggggggg.......',
+  '.........gg.......ggggggg........',
+  '........gggg......gggggg.........',
+  '.......ggggg.......ggggg.........',
+  '.......gggggg......gggg..........',
+  '........ggggg.......ggg..........',
+  '........gggg.........g...........',
+  '.........ggg.....................',
+  '.........gg......................',
+  '..........g.........gg...........',
+  '....................gggg.........',
+  '...................ggggg.........',
+  '....................ggg..........',
+  '.................................',
+  '...........iii...................',
+  '.........iiiiiiiiii..............',
+  '.......iiiiiiiiiiiiiii...........',
+  '........iiiiiiiiiiii.............',
+  '.................................',
+];
+
 function buildSequence() {
   const rng = mulberry32(0xC05305);
   const S = [];
@@ -237,11 +275,10 @@ function buildSequence() {
     ],
     surfaceName: 'oceans and continents',
     surface: (dx, dy, d, R, r) => {
-      if (Math.abs(dy) > R * 0.86) return r() < 0.75 ? '#dfe8ee' : '#c8d8e2';
-      const n = Math.sin(dx * 0.5 + 1.7) + Math.sin(dy * 0.62 + dx * 0.28)
-        + 0.6 * Math.sin(dx * 0.23 - dy * 0.4 + 2.2) + (r() - 0.5) * 0.9;
-      if (n > 1.1) return r() < 0.2 ? '#6f9458' : '#4f7d4a';          // land
-      if (n > 0.8) return '#c9b98a';                                  // coasts/desert
+      const row = EARTH_MAP[dy + 16], ch = row ? row[dx + 16] : '.';
+      if (ch === 'i') return r() < 0.8 ? '#dfe8ee' : '#c8d8e2';       // polar ice
+      if (ch === 'g') return r() < 0.8 ? '#4f7d4a' : '#5f8d54';       // land
+      if (ch === 'd') return r() < 0.85 ? '#c9b98a' : '#bcab7c';      // desert
       return r() < 0.88 ? '#2e5f9e' : '#3a6cab';                      // ocean
     },
     atmosphere: '#9fc8e8',
@@ -475,6 +512,126 @@ function buildSequence() {
     },
   });
 
+  // --- The deep sky: real objects imaged by Hubble and friends ---
+
+  // TRAPPIST-1: a red dwarf with seven rocky planets.
+  {
+    const blocks = [
+      { dx: 0, dy: 0, color: '#e06a48', twinkle: true },
+      { dx: 1, dy: 0, color: '#b04a34' }, { dx: 0, dy: 1, color: '#b04a34' },
+      { dx: 1, dy: 1, color: '#984032' },
+    ];
+    const planetCols = ['#c8b8a8', '#a8c0c8', '#8fb0a0', '#c0a890', '#98a8c0', '#b0988a', '#a89878'];
+    for (let i = 0; i < 7; i++) {
+      blocks.push({ dx: 4 + i * 3, dy: Math.round(Math.sin(i * 1.2) * 2), color: planetCols[i] });
+    }
+    S.push({
+      name: 'TRAPPIST-1', cx: 240, cy: 1150, R: 14, kind: 'body', zoom: 6,
+      layers: [{ name: null, blocks }],
+      fact: 'Just 40 light-years away: a cool red dwarf star with SEVEN Earth-sized rocky planets, three of them in the habitable zone where liquid water could exist. Discovered in 2016-17.',
+    });
+  }
+
+  // The Pleiades: the Seven Sisters cluster wrapped in blue haze.
+  {
+    const blocks = [];
+    for (let i = 0; i < 60; i++) {
+      blocks.push({
+        dx: Math.round((rng() + rng() - 1) * 16), dy: Math.round((rng() + rng() - 1) * 11),
+        color: rng() < 0.5 ? '#2a3c66' : '#3a5178', alpha: 0.3 + rng() * 0.3,
+      });
+    }
+    const sisters = [[0, 0], [-6, -3], [5, -4], [8, 3], [-9, 4], [3, 6], [-3, -7]];
+    for (const [dx, dy] of sisters) {
+      blocks.push({ dx, dy, color: '#cfe0ff', twinkle: true });
+      blocks.push({ dx: dx + 1, dy, color: '#8fa8d8', alpha: 0.7 });
+      blocks.push({ dx: dx - 1, dy, color: '#8fa8d8', alpha: 0.7 });
+    }
+    S.push({
+      name: 'the Pleiades', cx: 1050, cy: 280, R: 17, kind: 'body', zoom: 4,
+      layers: [{ name: null, blocks }],
+      fact: 'The Seven Sisters (M45), 444 light-years away — a young cluster of hot blue stars about 100 million years old, drifting through a dust cloud that scatters their blue light. Visible to the naked eye; known to nearly every ancient culture.',
+    });
+  }
+
+  // The Orion Nebula: a glowing stellar nursery.
+  {
+    const blocks = [];
+    const cols = ['#d88ab0', '#b06a9e', '#8a5d9e', '#5d7ba8', '#3a5178', '#c090a8'];
+    for (let i = 0; i < 420; i++) {
+      const dx = Math.round((rng() + rng() + rng() - 1.5) * 15);
+      const dy = Math.round((rng() + rng() + rng() - 1.5) * 11);
+      const d = Math.hypot(dx, dy);
+      blocks.push({ dx, dy, color: cols[Math.min(cols.length - 1, (d / 4) | 0)], alpha: 0.35 + rng() * 0.45, d });
+    }
+    blocks.sort((a, b) => a.d - b.d);
+    for (const [dx, dy] of [[0, 0], [2, -1], [-1, 2], [1, 1]]) { // the Trapezium
+      blocks.push({ dx, dy, color: '#f2f6ff', twinkle: true });
+    }
+    S.push({
+      name: 'the Orion Nebula', cx: 2080, cy: 1620, R: 20, kind: 'body', zoom: 3.5,
+      layers: [{ name: null, blocks }],
+      fact: 'A stellar nursery 1,344 light-years away where new stars are being born right now, lit from within by the four young Trapezium stars. It is the middle "star" of Orion\'s sword, visible to the naked eye.',
+    });
+  }
+
+  // The Pillars of Creation (Eagle Nebula).
+  {
+    const blocks = [];
+    const pillarCols = ['#8a6a54', '#6f5544', '#5d7a72', '#4a6a66'];
+    const pillars = [[-8, 18, 3], [0, 24, 4], [8, 14, 2.5]];
+    for (let i = 0; i < 70; i++) { // surrounding teal glow
+      blocks.push({
+        dx: Math.round((rng() - 0.5) * 34), dy: Math.round((rng() - 0.5) * 30),
+        color: '#2a4a50', alpha: 0.2 + rng() * 0.25, k: 0,
+      });
+    }
+    for (const [px, height, width] of pillars) {
+      for (let y = 0; y < height; y++) {
+        const wHere = Math.max(1, width * (1 - (y / height) * 0.5));
+        for (let x = -Math.floor(wHere); x <= Math.floor(wHere); x++) {
+          blocks.push({
+            dx: px + x + Math.round(Math.sin(y * 0.5) * 1.2),
+            dy: 13 - y,
+            color: dither(rng, pillarCols),
+            alpha: 0.75 + rng() * 0.25,
+            k: 1 + y,
+          });
+        }
+      }
+      blocks.push({ dx: px, dy: 13 - height, color: '#bfe8dc', twinkle: true, k: 99 });
+    }
+    blocks.sort((a, b) => a.k - b.k);
+    S.push({
+      name: 'the Pillars of Creation', cx: 1480, cy: 1680, R: 18, kind: 'body', zoom: 3.5,
+      layers: [{ name: null, blocks }],
+      fact: 'Towers of cold gas and dust in the Eagle Nebula, ~6,600 light-years away — the tallest is about 4 light-years high. New stars are forming inside them. Hubble\'s 1995 photograph of these pillars became one of the most famous images in science.',
+    });
+  }
+
+  // The Crab Nebula: wreckage of a supernova seen in 1054 AD.
+  {
+    const blocks = [{ dx: 0, dy: 0, color: '#eaf2ff', twinkle: true, k: 0 }]; // the pulsar
+    for (let f = 0; f < 14; f++) {
+      const baseAng = (f / 14) * Math.PI * 2;
+      for (let r2 = 1; r2 < 13; r2 += 0.8) {
+        const ang = baseAng + Math.sin(r2 * 0.7 + f) * 0.25;
+        blocks.push({
+          dx: Math.round(Math.cos(ang) * r2), dy: Math.round(Math.sin(ang) * r2 * 0.85),
+          color: r2 < 4 ? '#9fb8e8' : rng() < 0.55 ? '#d8905a' : '#b06a4a',
+          alpha: Math.max(0.3, 1 - r2 * 0.06),
+          k: r2,
+        });
+      }
+    }
+    blocks.sort((a, b) => a.k - b.k);
+    S.push({
+      name: 'the Crab Nebula', cx: 760, cy: 170, R: 14, kind: 'body', zoom: 4,
+      layers: [{ name: null, blocks }],
+      fact: 'The shredded remains of a star Chinese astronomers watched explode in 1054 AD — bright enough to see in daylight for three weeks. At its heart spins a pulsar: a city-sized neutron star rotating 30 times per second.',
+    });
+  }
+
   // Beyond: Andromeda.
   S.push(makeSpiralGalaxy(rng, {
     name: 'the Andromeda Galaxy', cx: 350, cy: 280, R: 48,
@@ -512,9 +669,46 @@ const ATLAS = [
     ],
   },
   {
+    title: 'The Deep Sky', names: [
+      'TRAPPIST-1', 'the Pleiades', 'the Orion Nebula',
+      'the Pillars of Creation', 'the Crab Nebula',
+    ],
+  },
+  {
     title: 'Beyond the Milky Way', names: ['the Andromeda Galaxy'],
   },
 ];
+
+// Real stats shown in the info panel (hover or click an atlas entry).
+const STATS = {
+  'the Sun': { Type: 'G-type main-sequence star', Diameter: '1.39 million km (109 Earths)', Mass: '99.8% of the Solar System', 'Surface temp': '5,500 °C', 'Core temp': '15 million °C', Age: '4.6 billion years' },
+  Mercury: { Diameter: '4,880 km', 'Distance from Sun': '58M km (0.39 AU)', Day: '176 Earth days', Year: '88 Earth days', Moons: '0', 'Surface temp': '−173 to 427 °C' },
+  Venus: { Diameter: '12,104 km', 'Distance from Sun': '108M km (0.72 AU)', Day: '243 Earth days (retrograde)', Year: '225 Earth days', Moons: '0', 'Surface temp': '465 °C' },
+  Earth: { Diameter: '12,742 km', 'Distance from Sun': '149.6M km (1 AU)', Day: '24 hours', Year: '365.25 days', Moons: '1', 'Surface temp': '−88 to 58 °C' },
+  'the Moon': { Diameter: '3,474 km', 'Distance from Earth': '384,400 km', 'Orbital period': '27.3 days', Gravity: '16.6% of Earth\'s', 'Visited by': '12 humans (1969–72)' },
+  Mars: { Diameter: '6,779 km', 'Distance from Sun': '228M km (1.52 AU)', Day: '24.6 hours', Year: '687 Earth days', Moons: '2 (Phobos, Deimos)', 'Surface temp': '−140 to 20 °C' },
+  "Halley's Comet": { Nucleus: '15 × 8 km', 'Orbital period': '75–79 years', 'Last seen': '1986', 'Next visit': '2061', Speed: 'up to 254,000 km/h' },
+  'the asteroid belt': { Location: 'between Mars and Jupiter', 'Total mass': 'less than the Moon', 'Largest member': 'Ceres (940 km)', Objects: 'millions' },
+  Jupiter: { Diameter: '139,820 km (11 Earths)', 'Distance from Sun': '778M km (5.2 AU)', Day: '9.9 hours', Year: '11.9 Earth years', Moons: '95 known', 'Great Red Spot': 'storm bigger than Earth' },
+  Saturn: { Diameter: '116,460 km', 'Distance from Sun': '1.4B km (9.5 AU)', Day: '10.7 hours', Year: '29.4 Earth years', Moons: '146 known', Rings: 'ice, ~10 m thick' },
+  Uranus: { Diameter: '50,724 km', 'Distance from Sun': '2.9B km (19.2 AU)', Day: '17.2 hours (sideways)', Year: '84 Earth years', Moons: '28 known', 'Axial tilt': '98°' },
+  Neptune: { Diameter: '49,244 km', 'Distance from Sun': '4.5B km (30 AU)', Day: '16.1 hours', Year: '165 Earth years', Moons: '16 known', Winds: 'up to 2,100 km/h' },
+  Pluto: { Diameter: '2,377 km (smaller than the Moon)', 'Distance from Sun': '5.9B km (39.5 AU)', Year: '248 Earth years', Moons: '5 (incl. Charon)', Status: 'dwarf planet since 2006' },
+  'the Kuiper belt': { Location: 'beyond Neptune, 30–55 AU', Contents: 'icy dwarf planets and comets', 'Known objects': '~3,000 catalogued', 'Famous members': 'Pluto, Eris, Makemake' },
+  'Voyager 1': { Launched: '5 Sep 1977', Distance: '24+ billion km', Speed: '61,000 km/h', Status: 'in interstellar space', Cargo: 'the Golden Record' },
+  'the Oort Cloud': { Location: '2,000–100,000 AU', Contents: 'trillions of icy bodies', Status: 'hypothesised, never imaged', Source: 'long-period comets' },
+  'Proxima Centauri': { Type: 'red dwarf', Distance: '4.24 light-years', Planets: 'at least 2 (one in habitable zone)', 'Travel time': '70,000+ years at Voyager speed' },
+  Sirius: { Type: 'binary star system', Distance: '8.6 light-years', Brightness: 'brightest star in our night sky', Companion: 'Sirius B, a white dwarf' },
+  Polaris: { Type: 'yellow supergiant (triple system)', Distance: '~430 light-years', Role: 'the North Star', Note: 'almost exactly above Earth\'s north pole' },
+  Betelgeuse: { Type: 'red supergiant', Distance: '~550 light-years', Size: 'would swallow Mars if placed at the Sun', Fate: 'will explode as a supernova' },
+  'the galactic field': { Stars: '100–400 billion', Diameter: '~100,000 light-years', 'Our position': 'Orion Arm, ~27,000 ly from centre', 'Galactic year': '230 million years' },
+  'TRAPPIST-1': { Type: 'ultra-cool red dwarf', Distance: '40 light-years', Planets: '7 rocky, Earth-sized', 'Habitable zone': '3 planets', Discovered: '2016–17' },
+  'the Pleiades': { Type: 'open star cluster (M45)', Distance: '444 light-years', Age: '~100 million years', Stars: 'over 1,000 (7 visible)', Note: 'known to nearly every ancient culture' },
+  'the Orion Nebula': { Type: 'stellar nursery (M42)', Distance: '1,344 light-years', Width: '~24 light-years', Note: 'visible to the naked eye in Orion\'s sword' },
+  'the Pillars of Creation': { Location: 'Eagle Nebula (M16)', Distance: '~6,600 light-years', Height: 'tallest pillar ~4 light-years', Famous: 'Hubble photograph, 1995' },
+  'the Crab Nebula': { Type: 'supernova remnant (M1)', Distance: '6,500 light-years', Exploded: 'seen from Earth in 1054 AD', Heart: 'a pulsar spinning 30×/second' },
+  'the Andromeda Galaxy': { Type: 'spiral galaxy (M31)', Distance: '2.5 million light-years', Stars: '~1 trillion', Approach: '110 km/s toward us', Merger: 'in ~4.5 billion years' },
+};
 
 // ---------------------------------------------------------------------------
 // App state
@@ -562,18 +756,30 @@ const SPECKS = (() => {
 })();
 
 // Which bodies orbit once complete (dist/angle derived from placement).
+// Orbits are drawn as tilted ellipses (a 3/4 view of the orbital plane),
+// which is also why real orbit paths read as arcs rather than circles.
 const ORBIT = new Map();
-for (const name of ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']) {
-  const st = byName.get(name);
-  const dx = st.cx - SUN.x, dy = st.cy - SUN.y;
-  const dist = Math.hypot(dx, dy);
-  ORBIT.set(name, { dist, ang0: Math.atan2(dy, dx), speed: 0.005 * Math.sqrt(200 / dist) });
-}
 {
+  let i = 0;
+  for (const name of ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']) {
+    const st = byName.get(name);
+    const dx = st.cx - SUN.x, dy = st.cy - SUN.y;
+    const dist = Math.hypot(dx, dy);
+    ORBIT.set(name, {
+      dist,
+      ang0: Math.atan2(dy, dx),
+      speed: 0.028 * Math.sqrt(200 / dist),     // fast enough for the eye
+      squash: 0.56 + ((i * 7) % 5) * 0.02,      // per-planet tilt variation
+    });
+    i++;
+  }
   const moon = byName.get('the Moon');
   const earth = byName.get('Earth');
-  const dx = moon.cx - earth.cx, dy = moon.cy - earth.cy;
-  ORBIT.set('the Moon', { parent: 'Earth', dist: Math.hypot(dx, dy), ang0: Math.atan2(dy, dx), speed: 0.05 });
+  const mdx = moon.cx - earth.cx, mdy = moon.cy - earth.cy;
+  ORBIT.set('the Moon', {
+    parent: 'Earth', dist: Math.hypot(mdx, mdy),
+    ang0: Math.atan2(mdy, mdx), speed: 0.14, squash: 0.5,
+  });
 }
 
 // Anchored to wall-clock time so planets keep drifting between visits.
@@ -585,9 +791,9 @@ function posOf(st) {
   const a = o.ang0 - orbitClock() * o.speed;
   if (o.parent) {
     const p = posOf(byName.get(o.parent));
-    return { x: p.x + Math.cos(a) * o.dist, y: p.y + Math.sin(a) * o.dist };
+    return { x: p.x + Math.cos(a) * o.dist, y: p.y + Math.sin(a) * o.dist * o.squash };
   }
-  return { x: SUN.x + Math.cos(a) * o.dist, y: SUN.y + Math.sin(a) * o.dist };
+  return { x: SUN.x + Math.cos(a) * o.dist, y: SUN.y + Math.sin(a) * o.dist * o.squash };
 }
 
 const HOME = { x: 750, y: 950, z: 0.5 };
@@ -962,9 +1168,36 @@ function flyTo(x, y, z) {
   clampCam();
 }
 
+// Centre a point in the VISIBLE area (the atlas covers the left 230px).
+function flyToCentered(x, y, z) {
+  const off = $('sidebar').classList.contains('hidden') ? 0 : 115 / (BASE * z);
+  flyTo(x - off, y, z);
+}
+
+// Home: frame everything that has been built so far.
+function fitCompleted() {
+  const target = targetBlocks();
+  let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
+  for (const st of UNI.structures) {
+    if (target <= st.start) continue;
+    if (st.kind === 'field') {
+      minx = Math.min(minx, 150); maxx = Math.max(maxx, 2300);
+      miny = Math.min(miny, 150); maxy = Math.max(maxy, 1800);
+      continue;
+    }
+    const pos = posOf(st);
+    minx = Math.min(minx, pos.x - st.R - 6); maxx = Math.max(maxx, pos.x + st.R + 6);
+    miny = Math.min(miny, pos.y - st.R - 6); maxy = Math.max(maxy, pos.y + st.R + 6);
+  }
+  if (!isFinite(minx)) return flyTo(HOME.x, HOME.y, HOME.z);
+  const z = Math.min(2.2, Math.max(0.18,
+    Math.min((W - 280) / ((maxx - minx) * BASE), (H - 120) / ((maxy - miny) * BASE))));
+  flyToCentered((minx + maxx) / 2, (miny + maxy) / 2, z);
+}
+
 $('zoomIn').onclick = () => zoomAt(W / 2, H / 2, 1.45);
 $('zoomOut').onclick = () => zoomAt(W / 2, H / 2, 1 / 1.45);
-$('zoomReset').onclick = () => flyTo(HOME.x, HOME.y, HOME.z);
+$('zoomReset').onclick = fitCompleted;
 
 let lastTouch = null;
 canvas.addEventListener('touchstart', (e) => { lastTouch = snapshotTouches(e); }, { passive: true });
@@ -1020,7 +1253,7 @@ function connect() {
         if (goto) {
           const st = UNI.structures.find((x) => x.name.toLowerCase().includes(goto.toLowerCase()));
           if (st) {
-            flyTo(st.cx, st.cy, parseFloat(params.get('z')) || 5);
+            flyToCentered(st.cx, st.cy, parseFloat(params.get('z')) || 5);
             Object.assign(cam, camTarget);
           }
         }
@@ -1073,12 +1306,16 @@ function renderLocations() {
       const li = document.createElement('li');
       li.className = 'loc ' + st;
       li.textContent = cap(s.name);
-      li.onclick = () => {
-        showFact(s, st);
-        if (st !== 'locked') {
+      li.onmouseenter = () => { if (!state.infoPinned) showInfo(s); };
+      li.onmouseleave = () => { if (!state.infoPinned) hideInfo(); };
+      li.onclick = (e) => {
+        e.stopPropagation();
+        state.infoPinned = true;
+        showInfo(s);
+        if (locationState(s) !== 'locked') {
           const z = s.kind === 'ring' ? 0.5 : (s.zoom || Math.min(9, Math.max(2.5, (H * 0.35) / (s.R * 2 * BASE))));
           const pos = posOf(s);
-          flyTo(pos.x, pos.y, z);
+          flyToCentered(pos.x, pos.y, z);
         }
       };
       list.appendChild(li);
@@ -1086,18 +1323,49 @@ function renderLocations() {
   }
 }
 
-function showFact(s, st) {
-  $('factTitle').textContent = cap(s.name);
-  let text = s.fact || '';
-  if (st === 'locked') {
+// --- Info panel (right side): description + real stats, hover or click ----
+
+function showInfo(s) {
+  const st = locationState(s);
+  $('infoTitle').textContent = cap(s.name);
+  const target = targetBlocks();
+  const statusEl = $('infoStatus');
+  if (st === 'done') {
+    statusEl.textContent = '✦ fully formed';
+    statusEl.className = 'done';
+  } else if (st === 'building') {
+    const pct = (((target - s.start) / s.count) * 100).toFixed(1);
+    statusEl.textContent = `● under construction — ${pct}% built`;
+    statusEl.className = 'building';
+  } else {
     const needed = (s.start + 1) * ENERGY_PER_BLOCK - totalEnergy();
-    text += ` — Not yet formed: ${fmt(Math.max(1, needed))} more energy until construction begins.`;
+    statusEl.textContent = `🔒 not yet formed — ${fmt(Math.max(1, needed))} energy until construction begins`;
+    statusEl.className = 'locked';
   }
-  $('factText').textContent = text;
-  $('factCard').classList.add('show');
+  $('infoFact').textContent = s.fact || '';
+  const dl = $('infoStats');
+  dl.innerHTML = '';
+  const stats = STATS[s.name] || {};
+  for (const [k, v] of Object.entries(stats)) {
+    const dt = document.createElement('dt');
+    dt.textContent = k;
+    const dd = document.createElement('dd');
+    dd.textContent = v;
+    dl.append(dt, dd);
+  }
+  $('infoPanel').classList.add('show');
 }
 
-$('factClose').onclick = () => $('factCard').classList.remove('show');
+function hideInfo() {
+  state.infoPinned = false;
+  $('infoPanel').classList.remove('show');
+}
+
+$('infoClose').onclick = hideInfo;
+// Clicking anywhere outside the atlas/panel dismisses a pinned panel.
+document.addEventListener('mousedown', (e) => {
+  if (!e.target.closest('#infoPanel') && !e.target.closest('#locationList')) hideInfo();
+});
 
 // ---------------------------------------------------------------------------
 // Ornaments: animated embellishments for completed bodies
@@ -1155,14 +1423,136 @@ function drawOrnaments(t, s) {
   }
 
   const mars = byName.get('Mars');
-  if (mars && structDone(mars) && s > 5) {
+  if (mars && structDone(mars)) {
     const m = posOf(mars);
-    const p = w2s(m.x + 3, m.y + mars.R - 1);
-    ctx.fillStyle = '#dfe8f4';
-    ctx.fillRect(p.x, p.y, s * 1.2, s * 0.7);                          // rover body
-    ctx.fillStyle = '#5a6474';
-    ctx.fillRect(p.x - s * 0.2, p.y + s * 0.7, s * 1.6, s * 0.35);     // wheels
-    ctx.fillRect(p.x + s * 0.4, p.y - s * 0.6, s * 0.2, s * 0.6);      // mast
+    if (s > 5) {
+      const p = w2s(m.x + 3, m.y + mars.R - 1);
+      ctx.fillStyle = '#dfe8f4';
+      ctx.fillRect(p.x, p.y, s * 1.2, s * 0.7);                        // rover body
+      ctx.fillStyle = '#5a6474';
+      ctx.fillRect(p.x - s * 0.2, p.y + s * 0.7, s * 1.6, s * 0.35);   // wheels
+      ctx.fillRect(p.x + s * 0.4, p.y - s * 0.6, s * 0.2, s * 0.6);    // mast
+    }
+    // A dust devil wandering the surface every ~20s.
+    const cyc = t % 20;
+    if (cyc < 6) {
+      const wx = m.x - mars.R + (cyc / 6) * mars.R * 2;
+      const wy = m.y + Math.sin(cyc * 3) * 2;
+      if (Math.hypot(wx - m.x, wy - m.y) < mars.R - 1) {
+        const p = w2s(wx, wy);
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = '#d8b48a';
+        ctx.fillRect(p.x, p.y - s, Math.max(1.5, s * 0.6), s * 1.6);
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  // The Sun: an arcing solar prominence every ~17s, at a rotating spot.
+  const sun = byName.get('the Sun');
+  if (sun && structDone(sun)) {
+    const cyc = t % 17;
+    if (cyc < 2.5) {
+      const baseAng = Math.floor(t / 17) * 2.4;
+      const rise = Math.sin((cyc / 2.5) * Math.PI);
+      for (let k = 0; k < 4; k++) {
+        const ang = baseAng + k * 0.09;
+        const rad = sun.R + 1 + rise * (2.5 + k * 1.2);
+        const p = w2s(SUN.x + Math.cos(ang) * rad, SUN.y + Math.sin(ang) * rad);
+        ctx.globalAlpha = 0.7 * rise;
+        ctx.fillStyle = k < 2 ? '#ffcf7a' : '#e8a94f';
+        ctx.fillRect(p.x - s / 2, p.y - s / 2, Math.max(2, s), Math.max(2, s));
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // Mercury: a meteorite impact flash every ~13s.
+  const mercury = byName.get('Mercury');
+  if (mercury && structDone(mercury)) {
+    const cyc = t % 13;
+    if (cyc < 0.9) {
+      const m = posOf(mercury);
+      const seed = Math.floor(t / 13);
+      const ang = seed * 2.7, rad = mercury.R * 0.55;
+      const p = w2s(m.x + Math.cos(ang) * rad, m.y + Math.sin(ang) * rad);
+      const flash = 1 - cyc / 0.9;
+      ctx.globalAlpha = flash;
+      ctx.fillStyle = '#fff2d8';
+      ctx.fillRect(p.x - s / 2, p.y - s / 2, Math.max(2, s), Math.max(2, s));
+      ctx.globalAlpha = flash * 0.5;
+      ctx.strokeStyle = '#fff2d8';
+      const r2 = Math.max(3, s) * (1.6 - flash);
+      ctx.strokeRect(p.x - r2, p.y - r2, r2 * 2, r2 * 2);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // Venus: a pale cloud band slowly sweeping across the disc.
+  const venus = byName.get('Venus');
+  if (venus && structDone(venus) && s > 2) {
+    const v = posOf(venus);
+    const sweepX = ((t * 1.1) % (venus.R * 2 + 8)) - venus.R - 4;
+    for (let dy = -venus.R + 2; dy <= venus.R - 2; dy += 2) {
+      if (Math.hypot(sweepX, dy) > venus.R - 0.5) continue;
+      const p = w2s(v.x + sweepX, v.y + dy);
+      ctx.globalAlpha = 0.22;
+      ctx.fillStyle = '#f4ecc8';
+      ctx.fillRect(p.x, p.y, Math.max(1.5, s * 0.8), Math.max(1.5, s * 1.6));
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Jupiter: Io whips around every ~9 seconds.
+  const jupiter = byName.get('Jupiter');
+  if (jupiter && structDone(jupiter)) {
+    const j = posOf(jupiter);
+    const a = t * 0.7;
+    const p = w2s(j.x + Math.cos(a) * (jupiter.R + 5), j.y + Math.sin(a) * (jupiter.R + 5) * 0.4);
+    ctx.fillStyle = '#e8c86a';
+    const px = Math.max(2, s * 0.8);
+    ctx.fillRect(p.x - px / 2, p.y - px / 2, px, px);
+  }
+
+  // Saturn: a glint travelling along the rings.
+  const saturn = byName.get('Saturn');
+  if (saturn && structDone(saturn)) {
+    const sa = posOf(saturn);
+    const a = t * 0.5;
+    const p = w2s(sa.x + Math.cos(a) * (saturn.R + 14), sa.y + Math.sin(a) * 2.6);
+    ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t * 6);
+    ctx.fillStyle = '#f2ecd8';
+    ctx.fillRect(p.x - 1, p.y - 1, Math.max(2, s * 0.7), Math.max(2, s * 0.7));
+    ctx.globalAlpha = 1;
+  }
+
+  // Uranus: a soft aurora pulse at the pole (it rolls on its side).
+  const uranus = byName.get('Uranus');
+  if (uranus && structDone(uranus) && s > 1.5) {
+    const u = posOf(uranus);
+    const p = w2s(u.x + uranus.R - 1, u.y);
+    ctx.globalAlpha = 0.25 + 0.2 * Math.sin(t * 1.2);
+    ctx.fillStyle = '#bff0e8';
+    ctx.fillRect(p.x - s, p.y - s, s * 2, s * 2);
+    ctx.globalAlpha = 1;
+  }
+
+  // Neptune: Triton orbiting backwards + the storm brightening.
+  const neptune = byName.get('Neptune');
+  if (neptune && structDone(neptune)) {
+    const n = posOf(neptune);
+    const a = -t * 0.35; // retrograde, like the real Triton
+    const p = w2s(n.x + Math.cos(a) * (neptune.R + 4), n.y + Math.sin(a) * (neptune.R + 4) * 0.5);
+    ctx.fillStyle = '#d8e4f0';
+    const px = Math.max(2, s * 0.7);
+    ctx.fillRect(p.x - px / 2, p.y - px / 2, px, px);
+    if (s > 2) {
+      const sp = w2s(n.x - 2, n.y - 5);
+      ctx.globalAlpha = 0.2 + 0.2 * Math.sin(t * 2.2);
+      ctx.fillStyle = '#eef4fc';
+      ctx.fillRect(sp.x, sp.y, s * 4, s);
+      ctx.globalAlpha = 1;
+    }
   }
 }
 
@@ -1222,18 +1612,19 @@ function frame(now) {
   }
   ctx.globalAlpha = 1;
 
-  // Orbit paths.
+  // Orbit paths: tilted ellipses through each begun planet.
   const target = targetBlocks();
   const sunS = w2s(SUN.x, SUN.y);
-  ctx.strokeStyle = 'rgba(110, 150, 220, 0.09)';
+  ctx.strokeStyle = 'rgba(110, 150, 220, 0.1)';
   ctx.lineWidth = 1;
-  for (const st of UNI.structures) {
-    if (st.kind !== 'body' || st.name === 'the Sun' || st.name === 'the Moon' ||
-        st.name === 'the Andromeda Galaxy' || target <= st.start) continue;
-    const r = Math.hypot(st.cx - SUN.x, st.cy - SUN.y) * s;
-    if (r < 8 || r > Math.hypot(W, H) * 2) continue;
+  for (const [name, o] of ORBIT) {
+    if (o.parent) continue;
+    const st = byName.get(name);
+    if (target <= st.start) continue;
+    const rx = o.dist * s, ry = o.dist * o.squash * s;
+    if (rx < 8 || rx > Math.hypot(W, H) * 3) continue;
     ctx.beginPath();
-    ctx.arc(sunS.x, sunS.y, r, 0, Math.PI * 2);
+    ctx.ellipse(sunS.x, sunS.y, rx, ry, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
 

@@ -75,34 +75,6 @@ html, body {
 }
 @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
 
-/* ---- educational fact card ---- */
-#factCard {
-  position: fixed;
-  left: 50%; bottom: 60px;
-  transform: translateX(-50%) translateY(12px);
-  width: min(440px, 84vw);
-  padding: 14px 18px;
-  background: rgba(7, 14, 28, 0.94);
-  border: 1px solid rgba(130, 165, 235, 0.3);
-  border-radius: 9px;
-  z-index: 15;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s, transform 0.3s;
-}
-#factCard.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
-#factCard h3 { font-size: 14px; color: #dce8fa; margin-bottom: 6px; letter-spacing: 0.03em; }
-#factCard p { font-size: 12.5px; color: #9fb4d8; line-height: 1.6; }
-#factClose {
-  position: absolute;
-  top: 6px; right: 9px;
-  border: none; background: none;
-  color: #55648a;
-  font-size: 15px;
-  cursor: pointer;
-}
-#factClose:hover { color: #dce8fa; }
-
 #sidebarToggle {
   position: fixed;
   top: 12px; left: 12px;
@@ -269,3 +241,40 @@ body:has(#sidebar:not(.hidden)) #sidebarToggle { left: 242px; }
   background: linear-gradient(90deg, #2e4a80, #6f9ad8);
   transition: width 0.5s ease;
 }
+
+/* ---- info panel (right side): description + stats ---- */
+#infoPanel {
+  position: fixed;
+  top: 200px; right: 20px;
+  width: 300px;
+  max-height: calc(100vh - 290px);
+  overflow-y: auto;
+  padding: 16px 18px;
+  background: rgba(7, 14, 28, 0.95);
+  border: 1px solid rgba(130, 165, 235, 0.3);
+  border-radius: 9px;
+  z-index: 15;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(10px);
+  transition: opacity 0.25s, transform 0.25s;
+}
+#infoPanel.show { opacity: 1; pointer-events: auto; transform: translateX(0); }
+#infoPanel h3 { font-size: 15px; color: #dce8fa; margin-bottom: 5px; letter-spacing: 0.03em; }
+#infoStatus { font-size: 11px; margin-bottom: 9px; }
+#infoStatus.done { color: #8fd8a8; }
+#infoStatus.building { color: #7da8f0; }
+#infoStatus.locked { color: #8a94b0; }
+#infoPanel p { font-size: 12.5px; color: #9fb4d8; line-height: 1.6; margin-bottom: 11px; }
+#infoStats { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; }
+#infoStats dt { font-size: 10.5px; color: #5a70a0; text-transform: uppercase; letter-spacing: 0.05em; padding-top: 1px; }
+#infoStats dd { font-size: 11.5px; color: #c8d8f2; }
+#infoClose {
+  position: absolute;
+  top: 8px; right: 11px;
+  border: none; background: none;
+  color: #55648a;
+  font-size: 16px;
+  cursor: pointer;
+}
+#infoClose:hover { color: #dce8fa; }

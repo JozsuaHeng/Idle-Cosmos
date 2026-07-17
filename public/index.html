@@ -24,7 +24,7 @@
       <button data-pace="steady">Steady</button>
       <button data-pace="eager">Eager</button>
     </div>
-    <p class="paceNote">Same tokens, same universe — Eager just reveals ~7× more of it. Switching back is lossless.</p>
+    <p class="paceNote">Steady ×1.5, Eager ×2 — same tokens, same universe, just more of it revealed. Switching back is lossless.</p>
   </div>
 </aside>
 <button id="sidebarToggle" title="Toggle atlas">☰</button>
@@ -44,10 +44,12 @@
   <div class="track slim"><div id="structFill"></div></div>
 </div>
 
-<div id="factCard">
-  <button id="factClose" title="Close">×</button>
-  <h3 id="factTitle"></h3>
-  <p id="factText"></p>
+<div id="infoPanel">
+  <button id="infoClose" title="Close">×</button>
+  <h3 id="infoTitle"></h3>
+  <div id="infoStatus"></div>
+  <p id="infoFact"></p>
+  <dl id="infoStats"></dl>
 </div>
 
 <div id="zoomCtl">
