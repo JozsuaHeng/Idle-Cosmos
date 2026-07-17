@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Universe</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌌</text></svg>">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<canvas id="space"></canvas>
+
+<aside id="sidebar">
+  <header>
+    <h1>🌌 Token Universe</h1>
+    <p class="tagline">Every token Claude burns becomes stardust.</p>
+  </header>
+  <label class="follow">
+    <input type="checkbox" id="followLive" checked>
+    Follow live session
+  </label>
+  <ul id="sessionList"></ul>
+</aside>
+<button id="sidebarToggle" title="Toggle galaxy list">☰</button>
+
+<div id="hud">
+  <div id="universeName">…</div>
+  <div id="universeAge"></div>
+  <div class="stat"><span id="energyVal">0</span> cosmic energy</div>
+  <div class="stat dim"><span id="tokenVal">0</span> tokens · <span id="promptVal">0</span> prompts</div>
+</div>
+
+<div id="milestoneBar">
+  <div id="milestoneLabel"></div>
+  <div class="track"><div id="milestoneFill"></div></div>
+</div>
+
+<div id="toast"></div>
+<button id="snapBtn" title="Save a picture of this universe">📸</button>
+
+<script src="/app.js"></script>
+</body>
+</html>
