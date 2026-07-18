@@ -20,16 +20,6 @@
   </div>
   <h2>Atlas</h2>
   <ul id="locationList"></ul>
-  <div id="constellationCtl">
-    <h2>Constellations</h2>
-    <ul id="constellationList"></ul>
-    <button id="drawConstellation">✦ Draw a constellation</button>
-    <p class="paceNote" id="constellationHint">Click 2 or more stars, then finish to name it.</p>
-  </div>
-  <div id="achievementCtl">
-    <h2>Achievements <span id="achieveCount"></span></h2>
-    <ul id="achievementList"></ul>
-  </div>
   <div id="paceCtl">
     <h2>Pace</h2>
     <div class="modes">
@@ -83,8 +73,18 @@
   <button id="zoomReset" title="Zoom out to everything you've unlocked">⌂</button>
 </div>
 
+<div id="phenomenonBanner"></div>
+
+<div id="bookPanel">
+  <button id="bookClose" title="Close">×</button>
+  <h3>Achievement Book</h3>
+  <p class="formulaIntro" id="bookIntro"></p>
+  <ul id="bookList"></ul>
+</div>
+
 <div id="toast"></div>
 <button id="formulaBtn" title="How this works">ⓘ</button>
+<button id="bookBtn" title="Achievement book">📖</button>
 <button id="snapBtn" title="Save a picture of this universe">📸</button>
 
 <script src="/app.js"></script>

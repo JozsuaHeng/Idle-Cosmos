@@ -801,6 +801,205 @@ function buildSequence(seed) {
     });
   }
 
+  // The Ring Nebula (M57): a dying Sun-like star's outer layers, shed as a glowing shell.
+  {
+    const rRng = mulberry32(seed ^ 0x1A2B3C);
+    const blocks = [];
+    for (let ring = 0; ring < 3; ring++) {
+      const rad = 8 + ring * 2.4;
+      for (let a2 = 0; a2 < Math.PI * 2; a2 += 0.09) {
+        const wob = 1 + Math.sin(a2 * 3 + ring) * 0.15;
+        blocks.push({
+          dx: Math.round(Math.cos(a2) * rad * wob), dy: Math.round(Math.sin(a2) * rad * wob * 0.72),
+          color: ring === 0 ? '#e89ac8' : ring === 1 ? '#a878d8' : '#5878c0',
+          alpha: 0.5 + rRng() * 0.4,
+        });
+      }
+    }
+    blocks.push({ dx: 0, dy: 0, color: '#eaf2ff', twinkle: true }); // the white dwarf remnant
+    S.push({
+      name: 'the Ring Nebula', cx: 980, cy: 60, R: 12, kind: 'body', zoom: 6,
+      layers: [{ name: null, blocks }],
+      fact: 'A planetary nebula 2,600 light-years away — the glowing shell of gas a Sun-like star gently sheds near the end of its life, leaving behind a small, hot white dwarf at its centre (visible here as the pale core). Despite the name, it has nothing to do with planets; early telescope observers just thought the round, hazy shape looked planet-like. Our own Sun will likely form something similar in roughly 5 billion years. It is one of the most-observed objects in the night sky, a favourite target for amateur telescopes every summer.',
+    });
+  }
+
+  // The Tarantula Nebula: the largest and most active stellar nursery known.
+  {
+    const trRng = mulberry32(seed ^ 0x2B3C4D);
+    const blocks = [];
+    const cols = ['#e888a8', '#c868a0', '#8868c8', '#5878c0', '#f0b8c8'];
+    for (let i = 0; i < 480; i++) {
+      const dx = Math.round((trRng() + trRng() + trRng() - 1.5) * 20);
+      const dy = Math.round((trRng() + trRng() + trRng() - 1.5) * 16);
+      const d = Math.hypot(dx, dy);
+      blocks.push({ dx, dy, color: dither(trRng, cols), alpha: 0.35 + trRng() * 0.45, k: d });
+    }
+    blocks.sort((a, b) => a.k - b.k);
+    for (let i = 0; i < 8; i++) {
+      blocks.push({ dx: Math.round((trRng() - 0.5) * 24), dy: Math.round((trRng() - 0.5) * 18), color: '#f2f6ff', twinkle: true });
+    }
+    S.push({
+      name: 'the Tarantula Nebula', cx: 1900, cy: 1830, R: 24, kind: 'body', zoom: 3.2,
+      layers: [{ name: null, blocks }],
+      fact: 'The largest and most violently active star-forming region known in our cosmic neighbourhood, 161,000 light-years away in a small satellite galaxy of the Milky Way. It contains R136, a cluster of the most massive stars ever discovered, some over 200 times the Sun\'s mass — stars that shouldn\'t theoretically be able to form at all, yet did. If it were as close to Earth as the Orion Nebula, it would be bright enough to cast shadows at night and would appear to cover a large part of the sky.',
+    });
+  }
+
+  // Eta Carinae: an unstable, doomed binary star inside its own ejected nebula.
+  {
+    const etaRng = mulberry32(seed ^ 0x3C4D5E);
+    const blocks = [{ dx: 0, dy: 0, color: '#fff2d8', twinkle: true }];
+    for (const sgn of [1, -1]) {
+      for (let i = 0; i < 55; i++) {
+        const t2 = etaRng();
+        const lobeY = sgn * (2 + t2 * 11);
+        const spread = (1 - t2 * 0.6) * (3 + t2 * 4);
+        blocks.push({
+          dx: Math.round((etaRng() - 0.5) * spread), dy: Math.round(lobeY),
+          color: dither(etaRng, ['#e8905a', '#c86a3a', '#f0b078']),
+          alpha: 0.5 + etaRng() * 0.4, k: Math.abs(lobeY),
+        });
+      }
+    }
+    blocks.sort((a, b) => (a.k || 0) - (b.k || 0));
+    S.push({
+      name: 'Eta Carinae', cx: 550, cy: 1820, R: 14, kind: 'body', zoom: 5,
+      layers: [{ name: null, blocks }],
+      fact: 'One of the most massive and unstable star systems known — a binary of two enormous stars, the larger over 90 times the Sun\'s mass, locked in a tight 5.5-year orbit. In the 1840s it briefly became one of the brightest stars in the sky during a huge eruption, blasting out the two-lobed "Homunculus Nebula" of gas seen here. Astronomers expect it to explode as a supernova, or even a rare hypernova, at any time in the next few hundred thousand years — a blink of an eye in cosmic terms, and one of the best candidate "next" naked-eye supernovae from Earth.',
+    });
+  }
+
+  // The Large Magellanic Cloud: an irregular dwarf galaxy orbiting the Milky Way.
+  {
+    const lmcRng = mulberry32(seed ^ 0x4D5E6F);
+    const blocks = [];
+    const cols = ['#e8dcc0', '#c8d4ec', '#e8b8a0', '#d8c8a8', '#f2ecd8'];
+    for (let i = 0; i < 260; i++) {
+      const dx = Math.round((lmcRng() + lmcRng() - 1) * 26);
+      const dy = Math.round((lmcRng() + lmcRng() - 1) * 18);
+      blocks.push({ dx, dy, color: dither(lmcRng, cols), alpha: 0.3 + lmcRng() * 0.4, twinkle: lmcRng() < 0.02 });
+    }
+    // A brighter bar-like core, since real LMC has a distorted central bar.
+    for (let i = 0; i < 40; i++) {
+      blocks.push({ dx: Math.round((lmcRng() - 0.5) * 14), dy: Math.round((lmcRng() - 0.5) * 5), color: '#f2ecd8', alpha: 0.6 + lmcRng() * 0.3 });
+    }
+    S.push({
+      name: 'the Large Magellanic Cloud', cx: 1780, cy: 60, R: 28, kind: 'body', zoom: 2.6,
+      layers: [{ name: null, blocks }],
+      fact: 'A small, irregular satellite galaxy of the Milky Way, only about 163,000 light-years away — close enough to be clearly visible to the naked eye from the Southern Hemisphere, looking like a detached piece of the Milky Way itself. It is named for Ferdinand Magellan\'s crew, who used it for navigation on their 16th-century voyage, though southern peoples had catalogued it long before. It hosted SN 1987A, the closest supernova observed in the modern era, and is gradually being pulled apart by our galaxy\'s gravity — it will eventually merge with the Milky Way entirely.',
+    });
+  }
+
+  // Centaurus A: the nearest active galaxy, split by a dark dust lane.
+  {
+    const cenRng = mulberry32(seed ^ 0x5E6F70);
+    const blocks = [];
+    for (const c of discCells(18)) {
+      if (Math.abs(c.dy) < 2.4 + (cenRng() - 0.5) * 1.5) continue; // the dust lane gap
+      blocks.push({ dx: c.dx, dy: c.dy, color: dither(cenRng, ['#e8dcc0', '#ddd0b0', '#d0c2a0']), alpha: 0.6 + cenRng() * 0.3, k: c.d });
+    }
+    for (let dx = -20; dx <= 20; dx++) {
+      const dy = Math.round((cenRng() - 0.5) * 2);
+      blocks.push({ dx, dy: 2 + dy, color: '#3a2f22', alpha: 0.75, k: 999 });
+      blocks.push({ dx, dy: -2 + dy, color: '#4a3d2c', alpha: 0.6, k: 999 });
+    }
+    // The relativistic jet.
+    for (let i = 0; i < 20; i++) {
+      blocks.push({ dx: Math.round(i * 1.1), dy: Math.round(-i * 0.5), color: '#a8c8ff', alpha: Math.max(0.15, 0.6 - i * 0.02), k: 1000 });
+    }
+    blocks.sort((a, b) => (a.k || 0) - (b.k || 0));
+    S.push({
+      name: 'Centaurus A', cx: 2370, cy: 1050, R: 22, kind: 'body', zoom: 3.2,
+      layers: [{ name: null, blocks }],
+      fact: 'The nearest active galaxy to Earth, about 12 million light-years away, split visibly in half by a thick, dark lane of dust — the leftover debris of a collision with a smaller spiral galaxy hundreds of millions of years ago. At its heart is a supermassive black hole devouring surrounding matter and firing out a jet of particles at nearly the speed of light, visible here streaming outward. It is a favourite target of amateur astronomers in the Southern Hemisphere and one of the brightest radio sources in the entire sky.',
+    });
+  }
+
+  // The Cartwheel Galaxy: a ring galaxy formed by a direct collision.
+  {
+    const cwRng = mulberry32(seed ^ 0x6F7081);
+    const blocks = [];
+    for (const c of discCells(5)) blocks.push({ dx: c.dx, dy: c.dy, color: dither(cwRng, ['#f0e6c8', '#e6dab8']), alpha: 0.7, k: 0 });
+    for (let a2 = 0; a2 < Math.PI * 2; a2 += 0.045) {
+      const rad = 18 + (cwRng() - 0.5) * 2.5;
+      blocks.push({
+        dx: Math.round(Math.cos(a2) * rad), dy: Math.round(Math.sin(a2) * rad * 0.78),
+        color: dither(cwRng, ['#e8b878', '#d8a868', '#c8985a']),
+        alpha: 0.55 + cwRng() * 0.35, twinkle: cwRng() < 0.05, k: 20,
+      });
+    }
+    for (let i = 0; i < 10; i++) { // faint spokes connecting core to ring
+      const a2 = cwRng() * Math.PI * 2, rad = cwRng() * 17 + 2;
+      blocks.push({ dx: Math.round(Math.cos(a2) * rad), dy: Math.round(Math.sin(a2) * rad * 0.78), color: '#8a7858', alpha: 0.3, k: 10 });
+    }
+    blocks.sort((a, b) => a.k - b.k);
+    S.push({
+      name: 'the Cartwheel Galaxy', cx: 60, cy: 1050, R: 22, kind: 'body', zoom: 3.5,
+      layers: [{ name: null, blocks }],
+      fact: 'A galaxy shaped like a wagon wheel, 500 million light-years away — the result of a smaller galaxy plunging directly through the middle of what was once an ordinary spiral, roughly 200-400 million years ago. The impact sent a ripple of star formation outward like a stone dropped in a pond, creating the bright outer ring, while faint spokes of gas still connect it to the small core left behind. The James Webb Space Telescope imaged it in stunning infrared detail in 2022, revealing thousands of individual young star clusters within the ring.',
+    });
+  }
+
+  // Sagittarius A*: our own galaxy's supermassive black hole.
+  {
+    const blocks = [];
+    for (let a2 = 0; a2 < Math.PI * 2; a2 += 0.12) {
+      const rad = 4 + Math.sin(a2 * 3) * 0.6;
+      blocks.push({ dx: Math.round(Math.cos(a2) * rad), dy: Math.round(Math.sin(a2) * rad * 0.85), color: '#e8a94f', alpha: 0.6 });
+    }
+    blocks.push({ dx: 0, dy: 0, color: '#000000' });
+    S.push({
+      name: 'Sagittarius A*', cx: 950, cy: 1800, R: 8, kind: 'body', zoom: 7,
+      layers: [{ name: null, blocks }],
+      fact: 'The supermassive black hole at the very centre of our own Milky Way, about 27,000 light-years from Earth and roughly 4 million times the Sun\'s mass. In 2022 the Event Horizon Telescope released the first-ever image of it — a faint, glowing ring of superheated gas around a dark shadow — a companion to their famous 2019 image of M87\'s black hole. Stars near it, tracked for decades, whip around it at speeds up to several percent of the speed of light, and that tracking is what first proved it was there long before it could be directly photographed.',
+    });
+  }
+
+  // 3C 273: the first quasar ever identified.
+  {
+    const blocks = [{ dx: 0, dy: 0, color: '#eaf2ff', twinkle: true }];
+    for (let k = 1; k <= 3; k++) {
+      blocks.push({ dx: -k, dy: 0, color: '#a8c8ff', alpha: Math.max(0.2, 0.7 - k * 0.15) },
+        { dx: k, dy: 0, color: '#a8c8ff', alpha: Math.max(0.2, 0.7 - k * 0.15) },
+        { dx: 0, dy: -k, color: '#a8c8ff', alpha: Math.max(0.2, 0.7 - k * 0.15) },
+        { dx: 0, dy: k, color: '#a8c8ff', alpha: Math.max(0.2, 0.7 - k * 0.15) });
+    }
+    for (let i = 1; i <= 8; i++) blocks.push({ dx: 2 + i, dy: -Math.round(i * 0.3), color: '#c8d8f8', alpha: Math.max(0.15, 0.5 - i * 0.05) }); // the visible jet
+    S.push({
+      name: '3C 273', cx: 2370, cy: 450, R: 8, kind: 'body', zoom: 7,
+      layers: [{ name: null, blocks }],
+      fact: 'The first quasar ever identified, in 1963, and still the brightest one visible from Earth — bright enough to be seen through a good amateur telescope despite being about 2.4 billion light-years away, roughly 4 trillion times farther than the Sun. It shines with the light of about 4 trillion Suns, powered by a supermassive black hole devouring gas at the centre of its host galaxy, with a jet of matter (visible here) blasting out for thousands of light-years. Its discovery proved that such extraordinarily distant, extraordinarily bright objects were real, launching the modern study of quasars.',
+    });
+  }
+
+  // The Laniakea Supercluster: the vast structure our galaxy belongs to.
+  {
+    const lanRng = mulberry32(seed ^ 0x708192);
+    const blocks = [];
+    for (let i = 0; i < 300; i++) {
+      const dx = Math.round((lanRng() + lanRng() + lanRng() - 1.5) * 34);
+      const dy = Math.round((lanRng() + lanRng() + lanRng() - 1.5) * 26);
+      blocks.push({ dx, dy, color: dither(lanRng, ['#3a5178', '#4a6088', '#5d7092', '#2a3c5c']), alpha: 0.25 + lanRng() * 0.35 });
+    }
+    // Little galaxy-dot clusters strung along filament-like lines.
+    for (let f = 0; f < 6; f++) {
+      const ang = lanRng() * Math.PI * 2, len = 18 + lanRng() * 14;
+      for (let t2 = 0; t2 < 1; t2 += 0.12) {
+        blocks.push({
+          dx: Math.round(Math.cos(ang) * len * t2 + (lanRng() - 0.5) * 3),
+          dy: Math.round(Math.sin(ang) * len * t2 + (lanRng() - 0.5) * 3),
+          color: '#dce8fa', alpha: 0.6 + lanRng() * 0.3, twinkle: lanRng() < 0.15,
+        });
+      }
+    }
+    S.push({
+      name: 'the Laniakea Supercluster', cx: 60, cy: 1550, R: 36, kind: 'body', zoom: 2,
+      layers: [{ name: null, blocks }],
+      fact: 'The vast supercluster of galaxies our own Milky Way calls home — over 100,000 galaxies bound loosely together by gravity across roughly 520 million light-years, first mapped in 2014 by tracing the direction galaxies are flowing under mutual gravitational pull, rather than by what can simply be seen. Its name means "immeasurable heaven" in Hawaiian. Even Laniakea itself is not the end: it is just one lobe of an even larger structure, and the Milky Way sits in its outskirts, gently flowing away from the rest along with everything nearby, toward a mysterious concentration of mass called the Great Attractor.',
+    });
+  }
+
   // Cumulative indices.
   let acc = 0;
   for (const s of S) {
@@ -832,17 +1031,20 @@ const ATLAS = [
   {
     title: 'The Deep Sky', names: [
       'TRAPPIST-1', 'the Pleiades', 'the Orion Nebula',
-      'the Pillars of Creation', 'the Crab Nebula',
+      'the Pillars of Creation', 'the Crab Nebula', 'the Ring Nebula',
+      'the Tarantula Nebula', 'Eta Carinae',
     ],
   },
   {
     title: 'Beyond the Milky Way', names: [
       'the Andromeda Galaxy', 'the Triangulum Galaxy', 'the Whirlpool Galaxy',
+      'the Large Magellanic Cloud', 'Centaurus A', 'the Cartwheel Galaxy',
     ],
   },
   {
     title: 'The Deep Universe', names: [
       'the Virgo Cluster', 'the Bullet Cluster', 'the Hubble Ultra Deep Field',
+      'Sagittarius A*', '3C 273', 'the Laniakea Supercluster',
       'the Cosmic Microwave Background',
     ],
   },
@@ -883,12 +1085,21 @@ const STATS = {
   'the Orion Nebula': { Type: 'stellar nursery (M42)', Distance: '1,344 light-years', Width: '~24 light-years', Note: 'visible to the naked eye in Orion\'s sword' },
   'the Pillars of Creation': { Location: 'Eagle Nebula (M16)', Distance: '~6,600 light-years', Height: 'tallest pillar ~4 light-years', Famous: 'Hubble photograph, 1995' },
   'the Crab Nebula': { Type: 'supernova remnant (M1)', Distance: '6,500 light-years', Exploded: 'seen from Earth in 1054 AD', Heart: 'a pulsar spinning 30×/second' },
+  'the Ring Nebula': { Type: 'planetary nebula (M57)', Distance: '2,600 light-years', Origin: 'a dying Sun-like star', Heart: 'a white dwarf remnant' },
+  'the Tarantula Nebula': { Type: 'stellar nursery', Distance: '161,000 light-years', Location: 'Large Magellanic Cloud', Note: 'largest known star-forming region' },
+  'Eta Carinae': { Type: 'unstable binary star', Distance: '~7,500 light-years', Mass: '90+ Suns (larger star)', Fate: 'likely supernova/hypernova candidate' },
   'the Andromeda Galaxy': { Type: 'spiral galaxy (M31)', Distance: '2.5 million light-years', Stars: '~1 trillion', Approach: '110 km/s toward us', Merger: 'in ~4.5 billion years' },
   'the Triangulum Galaxy': { Type: 'spiral galaxy (M33)', Distance: '2.73 million light-years', Stars: '~40 billion', Group: 'possible Andromeda satellite', Note: 'most distant naked-eye object' },
+  'the Large Magellanic Cloud': { Type: 'irregular dwarf galaxy', Distance: '~163,000 light-years', Visibility: 'naked eye, Southern Hemisphere', Note: 'hosted supernova SN 1987A' },
+  'Centaurus A': { Type: 'active elliptical galaxy', Distance: '~12 million light-years', Feature: 'dark dust lane + relativistic jet', Note: 'brightest radio source in the sky' },
+  'the Cartwheel Galaxy': { Type: 'ring galaxy', Distance: '~500 million light-years', Origin: 'direct galactic collision', Imaged: 'JWST, 2022' },
   'the Whirlpool Galaxy': { Type: 'spiral galaxy (M51)', Distance: '~23 million light-years', Companion: 'NGC 5195 (colliding)', Discovered: 'spiral structure seen 1845' },
   'the Virgo Cluster': { Type: 'galaxy cluster', Distance: '~54 million light-years', Members: '1,000–2,000 galaxies', Anchor: 'M87 (supermassive black hole imaged 2019)' },
   'the Bullet Cluster': { Type: 'colliding galaxy clusters', Distance: '~3.7 billion light-years', Famous: 'key evidence for dark matter', Method: 'X-ray + gravitational lensing' },
   'the Hubble Ultra Deep Field': { Type: 'deep-sky image', Galaxies: '~10,000 in one small patch', Exposure: '11.3 days total', Distance: 'up to 13+ billion light-years' },
+  'Sagittarius A*': { Type: 'supermassive black hole', Distance: '~27,000 light-years', Mass: '~4 million Suns', Imaged: 'Event Horizon Telescope, 2022' },
+  '3C 273': { Type: 'quasar', Distance: '~2.4 billion light-years', Brightness: '~4 trillion Suns', Discovered: '1963 — the first quasar' },
+  'the Laniakea Supercluster': { Type: 'galaxy supercluster', Span: '~520 million light-years', Galaxies: 'over 100,000', Mapped: '2014, via galaxy motion' },
   'the Cosmic Microwave Background': { Type: 'relic radiation', Age: '~380,000 years after the Big Bang', Temperature: '2.7 K (−270.4 °C)', Mapped: 'COBE, WMAP, Planck' },
 };
 
@@ -919,8 +1130,6 @@ const state = {
   loaded: false,
   collapsed: new Set(),
   focus: null, // { kind: 'home' } or { kind: 'loc', name } — re-applied on resize
-  drawingConstellation: false,
-  constellationPoints: [], // star names picked so far, while drawing
   reduceMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
 };
 
@@ -1211,8 +1420,42 @@ const SHARD_COLORS = ['#e8eef8', '#ffffff', '#c8d4e8', '#9aa4b5', '#3a5a9e', '#5
 
 // --- Ambient sky: shooting stars, meteors, drifting debris ---------------
 
+// The rarest tier: real, dramatic cosmic events. Each one is witnessed and
+// silently recorded in the achievement book the first time it happens.
+function spawnBigPhenomenon(now) {
+  const kind = ['meteoroid-collision', 'supernova', 'black-hole', 'quasar',
+    'gamma-ray-burst', 'kilonova', 'rogue-planet'][(Math.random() * 7) | 0];
+  const x = W * (0.2 + Math.random() * 0.6), y = H * (0.15 + Math.random() * 0.55);
+
+  if (kind === 'rogue-planet') {
+    const fromLeft = Math.random() < 0.5;
+    state.ambient.push({
+      kind, x: fromLeft ? -14 : W + 14, y,
+      vx: (fromLeft ? 1 : -1) * (0.35 + Math.random() * 0.25), vy: (Math.random() - 0.5) * 0.1,
+      life: 1, decay: 1 / 14, hue: 210 + Math.random() * 60,
+    });
+  } else if (kind === 'gamma-ray-burst') {
+    state.ambient.push({ kind, x, y, vx: 0, vy: 0, life: 1, decay: 1 / 0.45, angle: Math.random() * Math.PI });
+  } else {
+    // supernova, black-hole, quasar, kilonova, meteoroid-collision all just
+    // happen in place and fade — duration varies by how "big" the event is.
+    const durations = { supernova: 2.6, 'black-hole': 3, quasar: 2.2, kilonova: 2.4, 'meteoroid-collision': 1.6 };
+    state.ambient.push({
+      kind, x, y, vx: 0, vy: 0, life: 1, decay: 1 / durations[kind],
+      angle: Math.random() * Math.PI * 2,
+    });
+  }
+  witnessPhenomenon(kind);
+}
+
 function spawnAmbient(now) {
-  if (Math.random() < 0.004) {
+  const roll0 = Math.random();
+  if (roll0 < 0.0015) {
+    spawnBigPhenomenon(now);
+    state.nextAmbientAt = now + 700 + Math.random() * 1800;
+    return;
+  }
+  if (roll0 < 0.006) {
     // A rare, unforced flourish — not tied to any metric or milestone, just
     // occasional variety (a twin, oddly-coloured streak) so the sky never
     // feels like it's cycling through the same three things on a loop.
@@ -1224,6 +1467,7 @@ function spawnAmbient(now) {
     for (const dx of [0, 12]) {
       state.ambient.push({ kind: 'rare', x: x + dx, y, vx, vy, color, life: 1, decay: 1 / 0.6 });
     }
+    witnessPhenomenon('twin-streak');
     state.nextAmbientAt = now + 700 + Math.random() * 1800;
     return;
   }
@@ -1297,6 +1541,105 @@ function drawAmbient(now, dt) {
       ctx.globalAlpha = 0.92 * fade;
       ctx.fillStyle = '#e8eef8';
       ctx.fillRect(a.x - 1, a.y - 1, 2.5, 2.5);
+    } else if (a.kind === 'meteoroid-collision') {
+      if (a.life > 0.55) {
+        const approach = (1 - a.life) / 0.45;
+        const d = (1 - approach) * 20 + 2;
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = '#9a8f80';
+        ctx.fillRect(a.x + Math.cos(a.angle) * d - 1.5, a.y + Math.sin(a.angle) * d - 1.5, 3, 3);
+        ctx.fillRect(a.x - Math.cos(a.angle) * d - 1.5, a.y - Math.sin(a.angle) * d - 1.5, 3, 3);
+      } else {
+        const burst = 1 - a.life / 0.55;
+        ctx.globalAlpha = fade;
+        for (let k = 0; k < 6; k++) {
+          const bang = a.angle + k * 1.05;
+          const br = burst * 18;
+          ctx.fillStyle = k % 2 ? '#e8c8a0' : '#c8a878';
+          ctx.fillRect(a.x + Math.cos(bang) * br - 1, a.y + Math.sin(bang) * br - 1, 2, 2);
+        }
+      }
+    } else if (a.kind === 'supernova') {
+      const t2 = 1 - a.life;
+      const core = Math.max(0, 1 - t2 * 3);
+      if (core > 0) {
+        ctx.globalAlpha = core;
+        ctx.fillStyle = '#f2f6ff';
+        const s2 = 3 + core * 6;
+        ctx.fillRect(a.x - s2 / 2, a.y - s2 / 2, s2, s2);
+      }
+      ctx.globalAlpha = fade * 0.7;
+      ctx.strokeStyle = '#a8c8ff';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, t2 * 44, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (a.kind === 'black-hole') {
+      const pulse = 0.85 + 0.15 * Math.sin(now / 150);
+      const ring = ctx.createRadialGradient(a.x, a.y, 6, a.x, a.y, 20 * pulse);
+      ring.addColorStop(0, 'rgba(0, 0, 0, 1)');
+      ring.addColorStop(0.55, `rgba(255, 170, 60, ${0.8 * fade})`);
+      ring.addColorStop(1, 'rgba(255, 120, 40, 0)');
+      ctx.globalAlpha = fade;
+      ctx.fillStyle = ring;
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, 20 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, 7, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (a.kind === 'quasar') {
+      ctx.globalAlpha = fade;
+      ctx.fillStyle = '#eaf2ff';
+      ctx.fillRect(a.x - 2, a.y - 2, 4, 4);
+      ctx.strokeStyle = `rgba(180, 210, 255, ${0.6 * fade})`;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(a.x - Math.cos(a.angle) * 26, a.y - Math.sin(a.angle) * 26);
+      ctx.lineTo(a.x + Math.cos(a.angle) * 26, a.y + Math.sin(a.angle) * 26);
+      ctx.stroke();
+    } else if (a.kind === 'gamma-ray-burst') {
+      const len = 220;
+      const bx0 = a.x - Math.cos(a.angle) * len, by0 = a.y - Math.sin(a.angle) * len;
+      const bx1 = a.x + Math.cos(a.angle) * len, by1 = a.y + Math.sin(a.angle) * len;
+      const grad = ctx.createLinearGradient(bx0, by0, bx1, by1);
+      grad.addColorStop(0, 'rgba(200, 230, 255, 0)');
+      grad.addColorStop(0.5, `rgba(230, 245, 255, ${fade})`);
+      grad.addColorStop(1, 'rgba(200, 230, 255, 0)');
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(bx0, by0);
+      ctx.lineTo(bx1, by1);
+      ctx.stroke();
+    } else if (a.kind === 'kilonova') {
+      const t2 = 1 - a.life;
+      const early = t2 < 0.35;
+      ctx.globalAlpha = fade;
+      const s2 = early ? 3 + t2 * 14 : 5;
+      ctx.fillStyle = early ? '#dce6ff' : '#e8965a';
+      ctx.fillRect(a.x - s2 / 2, a.y - s2 / 2, s2, s2);
+      if (!early) {
+        ctx.globalAlpha = fade * 0.4;
+        ctx.strokeStyle = '#e8965a';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, (t2 - 0.35) * 32, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    } else if (a.kind === 'rogue-planet') {
+      ctx.globalAlpha = fade * 0.55;
+      ctx.fillStyle = `hsl(${a.hue}, 20%, 22%)`;
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = fade * 0.3;
+      ctx.strokeStyle = `hsl(${a.hue}, 30%, 40%)`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, 5, 0, Math.PI * 2);
+      ctx.stroke();
     } else {
       a.spin += dt / 900;
       ctx.globalAlpha = 0.55 * fade;
@@ -1350,33 +1693,22 @@ function w2s(x, y) {
 }
 
 function clampCam() {
-  camTarget.z = Math.min(14, Math.max(0.18, camTarget.z));
+  // The low end is intentionally extreme (~0.3%) — zoomed all the way out,
+  // everything ever built shrinks to a speck in a mostly-empty viewport,
+  // which is the point: it's honest about how much of the universe is
+  // still dark. fitCompleted()'s own "Home" framing has a much gentler
+  // floor, so this only matters for deliberate manual zooming.
+  camTarget.z = Math.min(14, Math.max(0.003, camTarget.z));
   camTarget.x = Math.min(WB, Math.max(0, camTarget.x));
   camTarget.y = Math.min(HB, Math.max(0, camTarget.y));
 }
 
-let dragging = false, lastMouse = null, dragDistance = 0, mouseDownOnCanvas = false;
+let dragging = false, lastMouse = null;
 
-canvas.addEventListener('mousedown', (e) => {
-  dragging = true;
-  mouseDownOnCanvas = true;
-  dragDistance = 0;
-  lastMouse = { x: e.clientX, y: e.clientY };
-});
-window.addEventListener('mouseup', (e) => {
-  dragging = false;
-  // A mouseup with barely any movement is a click, not a pan — used to
-  // pick stars while drawing a constellation. Only counts if the press
-  // also started on the canvas, so clicking a sidebar/UI button never
-  // misfires a star pick using a stale drag distance.
-  if (mouseDownOnCanvas && dragDistance < 4 && state.drawingConstellation) {
-    handleCanvasClick(e.clientX, e.clientY);
-  }
-  mouseDownOnCanvas = false;
-});
+canvas.addEventListener('mousedown', (e) => { dragging = true; lastMouse = { x: e.clientX, y: e.clientY }; });
+window.addEventListener('mouseup', () => { dragging = false; });
 window.addEventListener('mousemove', (e) => {
   if (!dragging) return;
-  dragDistance += Math.abs(e.clientX - lastMouse.x) + Math.abs(e.clientY - lastMouse.y);
   const s = BASE * cam.z;
   camTarget.x -= (e.clientX - lastMouse.x) / s;
   camTarget.y -= (e.clientY - lastMouse.y) / s;
@@ -1634,7 +1966,6 @@ function renderLocations() {
 // --- Info panel (right side): description + real stats, hover or click ----
 
 function showInfo(s) {
-  visitLocation(s.name);
   const st = locationState(s);
   $('infoTitle').textContent = cap(s.name);
   const target = targetBlocks();
@@ -1979,6 +2310,160 @@ function drawOrnaments(t, s) {
       ctx.globalAlpha = 1;
     }
   }
+
+  // --- More company: real spacecraft (and one deliberately unreal visitor)
+  // --- for locations that only had environmental effects until now.
+
+  // Mercury: a MESSENGER/BepiColombo-style probe in a slow, tight orbit.
+  if (mercury && structDone(mercury) && s > 2) {
+    const m = posOf(mercury);
+    const a = t * 0.9;
+    const p = w2s(m.x + Math.cos(a) * (mercury.R + 4), m.y + Math.sin(a) * (mercury.R + 4) * 0.4);
+    const px = Math.max(1.5, s * 0.6);
+    ctx.fillStyle = '#d8dce8';
+    ctx.fillRect(p.x - px / 2, p.y - px / 2, px, px);
+    if (s > 4) {
+      ctx.fillStyle = '#6a7aa0';
+      ctx.fillRect(p.x - px * 1.6, p.y - px * 0.2, px, px * 0.4);
+      ctx.fillRect(p.x + px * 0.6, p.y - px * 0.2, px, px * 0.4);
+    }
+  }
+
+  // Venus: a lander's glint on the surface, briefly visible through gaps
+  // in the clouds — real landers survived only minutes in the real thing.
+  if (venus && structDone(venus) && s > 2) {
+    const v = posOf(venus);
+    const cyc = (t + 3) % 40;
+    if (cyc < 5) {
+      const p = w2s(v.x - venus.R * 0.3, v.y + venus.R * 0.35);
+      ctx.globalAlpha = (0.4 + 0.3 * Math.sin(t * 8)) * Math.min(1, cyc, 5 - cyc);
+      ctx.fillStyle = '#f2d89a';
+      ctx.fillRect(p.x - 1, p.y - 1, Math.max(1.5, s * 0.5), Math.max(1.5, s * 0.5));
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // Earth: a UFO. Purely for fun — nothing else here claims to be real.
+  if (earth && structDone(earth) && s > 1) {
+    const e = posOf(earth);
+    const cyc = t % 47;
+    if (cyc < 4) {
+      const prog = cyc / 4;
+      const wx = e.x - earth.R * 3 + prog * earth.R * 6;
+      const wy = e.y - earth.R * 2.4 + Math.sin(prog * Math.PI * 3) * 3;
+      const p = w2s(wx, wy);
+      const px = Math.max(2, s * 1.1);
+      ctx.fillStyle = '#8fe0d8';
+      ctx.fillRect(p.x - px, p.y - px * 0.3, px * 2, px * 0.6);
+      ctx.fillStyle = '#e8fff8';
+      ctx.fillRect(p.x - px * 0.35, p.y - px * 0.7, px * 0.7, px * 0.4);
+      ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t * 20);
+      ctx.fillStyle = '#c8fff0';
+      ctx.fillRect(p.x - px * 1.1, p.y + px * 0.2, px * 0.3, px * 0.3);
+      ctx.fillRect(p.x + px * 0.8, p.y + px * 0.2, px * 0.3, px * 0.3);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // The Moon: the lunar module sitting near the flag.
+  if (moon && structDone(moon) && s > 5) {
+    const m = posOf(moon);
+    const p = w2s(m.x - 1.5, m.y - moon.R - 0.5);
+    ctx.fillStyle = '#d8d0c0';
+    ctx.fillRect(p.x - s * 0.5, p.y - s * 0.4, s, s * 0.6);
+    ctx.fillStyle = '#a89880';
+    ctx.fillRect(p.x - s * 0.65, p.y + s * 0.15, s * 0.3, s * 0.25);
+    ctx.fillRect(p.x + s * 0.4, p.y + s * 0.15, s * 0.3, s * 0.25);
+  }
+
+  // Mars: Ingenuity, the real Mars helicopter, hopping briefly near the rover.
+  if (mars && structDone(mars) && s > 5) {
+    const m = posOf(mars);
+    const cyc = t % 22;
+    if (cyc < 6) {
+      const hop = Math.sin((cyc / 6) * Math.PI);
+      const p = w2s(m.x + 4, m.y + mars.R - 1 - hop * 3);
+      ctx.fillStyle = '#e8d090';
+      ctx.fillRect(p.x - s * 0.25, p.y - s * 0.2, s * 0.5, s * 0.35);
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = '#c8c8c8';
+      ctx.fillRect(p.x - s * 0.5, p.y - s * 0.3, s, s * 0.08);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // Jupiter: Juno, in a long looping polar orbit far out from the cloud tops.
+  if (jupiter && structDone(jupiter) && s > 1) {
+    const j = posOf(jupiter);
+    const a = t * 0.22;
+    const p = w2s(j.x + Math.cos(a) * (jupiter.R + 16) * 0.3, j.y + Math.sin(a) * (jupiter.R + 16));
+    const px = Math.max(1.5, s * 0.5);
+    ctx.fillStyle = '#e0e4ec';
+    ctx.fillRect(p.x - px / 2, p.y - px / 2, px, px);
+  }
+
+  // Saturn: Cassini's 2017 "Grand Finale" dive into the planet, replayed occasionally.
+  if (saturn && structDone(saturn) && s > 1) {
+    const sa = posOf(saturn);
+    const cyc = t % 55;
+    if (cyc < 4) {
+      const prog = cyc / 4;
+      const p = w2s(sa.x + saturn.R * 2.2 * (1 - prog * 1.3), sa.y - saturn.R * 1.6 * (1 - prog));
+      ctx.globalAlpha = Math.min(1, 4 - cyc);
+      ctx.fillStyle = '#e8eef8';
+      ctx.fillRect(p.x - 1, p.y - 1, Math.max(1.5, s * 0.5), Math.max(1.5, s * 0.5));
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // Uranus and Neptune: Voyager 2, the only spacecraft ever to visit either,
+  // its real 1986 and 1989 flybys echoed as a slow one-off streak each.
+  if (uranus && structDone(uranus) && s > 1) {
+    const u = posOf(uranus);
+    const cyc = (t + 10) % 60;
+    if (cyc < 8) {
+      const prog = cyc / 8;
+      const p = w2s(u.x - uranus.R * 3 + prog * uranus.R * 6, u.y + uranus.R * 2);
+      ctx.fillStyle = '#dfe8f4';
+      ctx.fillRect(p.x - 1, p.y - 1, Math.max(1.5, s * 0.5), Math.max(1.5, s * 0.5));
+    }
+  }
+  if (neptune && structDone(neptune) && s > 1) {
+    const n = posOf(neptune);
+    const cyc = (t + 40) % 60;
+    if (cyc < 8) {
+      const prog = cyc / 8;
+      const p = w2s(n.x - neptune.R * 3 + prog * neptune.R * 6, n.y - neptune.R * 2);
+      ctx.fillStyle = '#dfe8f4';
+      ctx.fillRect(p.x - 1, p.y - 1, Math.max(1.5, s * 0.5), Math.max(1.5, s * 0.5));
+    }
+  }
+
+  // Pluto: New Horizons' historic 2015 flyby.
+  const pluto = byName.get('Pluto');
+  if (pluto && structDone(pluto) && s > 3) {
+    const pl = posOf(pluto);
+    const cyc = t % 50;
+    if (cyc < 6) {
+      const prog = cyc / 6;
+      const p = w2s(pl.x - pluto.R * 3 + prog * pluto.R * 6, pl.y - pluto.R * 1.5);
+      ctx.fillStyle = '#eaf0fa';
+      ctx.fillRect(p.x - 1, p.y - 1, Math.max(1.5, s * 0.5), Math.max(1.5, s * 0.5));
+    }
+  }
+
+  // The asteroid belt: Ceres, its largest member, tumbling slowly around the Sun.
+  const asteroidBelt = byName.get('the asteroid belt');
+  if (asteroidBelt && structDone(asteroidBelt) && s > 1) {
+    const a = t * 0.06;
+    const wx = SUN.x + Math.cos(a) * 330, wy = SUN.y + Math.sin(a) * 330 * 0.6;
+    const p = w2s(wx, wy);
+    const px = Math.max(2, s * 1.2);
+    ctx.fillStyle = '#a8a094';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, px, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -2052,8 +2537,6 @@ function frame(now) {
     ctx.ellipse(sunS.x, sunS.y, rx, ry, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
-
-  drawConstellations(t);
 
   ctx.imageSmoothingEnabled = false;
   const vw = W / s, vh = H / s;
@@ -2159,7 +2642,8 @@ function updateHUD() {
     $('sessTok').textContent = fmt(cur.tokens.input + cur.tokens.output + cur.tokens.cacheCreate + cur.tokens.cacheRead);
     $('sessEnergy').textContent = fmt(cur.energy);
   }
-  $('zoomPct').textContent = Math.round(cam.z * 100) + '%';
+  const pct = cam.z * 100;
+  $('zoomPct').textContent = (pct < 1 ? pct.toFixed(2) : pct < 10 ? pct.toFixed(1) : Math.round(pct)) + '%';
 
   // Claude activity light.
   const age = state.lastEventAt ? Date.now() - state.lastEventAt : Infinity;
@@ -2237,7 +2721,6 @@ function setPace(name) {
   renderLocations();
   updatePaceButtons();
   toast(`Pace: ${name} — ${PACES[name].blurb}`);
-  notePaceTried(name);
 }
 
 function updatePaceButtons() {
@@ -2298,209 +2781,81 @@ $('snapBtn').onclick = () => {
   a.href = canvas.toDataURL('image/png');
   a.click();
   toast('📸 Universe saved as an image');
-  unlockAchievement('cartographer');
 };
 
-// --- Achievements: quiet, passive recognition — nothing timed, nothing you
-// --- can fail. Persisted per browser, independent of universe cycles.
+// --- Achievement Book: a private, silent record of rare cosmic phenomena
+// --- you happen to witness. It never lists what you haven't seen yet —
+// --- the point is discovering them, not checking them off a list.
 
-const ACHIEVEMENTS = [
-  { id: 'explorer', name: 'Explorer', desc: 'Opened every location in the atlas' },
-  { id: 'time-traveler', name: 'Time Traveler', desc: 'Tried Patient, Steady, and Eager pace' },
-  { id: 'cartographer', name: 'Cartographer', desc: 'Saved a picture of the universe' },
-  { id: 'stargazer', name: 'Stargazer', desc: 'Drew and named a constellation' },
-  { id: 'reborn', name: 'Reborn', desc: 'Watched a universe complete and begin again' },
-];
-const ALL_LOCATION_NAMES = ATLAS.flatMap((g) => g.names);
+const PHENOMENA = {
+  'twin-streak': { name: 'A Double Omen', desc: 'Two shooting stars crossed the sky together, oddly coloured.' },
+  'meteoroid-collision': { name: 'A Collision', desc: 'Two meteoroids struck each other in the dark, scattering debris.' },
+  supernova: { name: 'A Star Died', desc: 'A distant star ended its life in a brilliant supernova.' },
+  'black-hole': { name: 'A Black Hole', desc: 'Spacetime itself tore open for a moment, then closed again.' },
+  quasar: { name: 'A Quasar', desc: 'A galactic core blazed with the light of a trillion suns.' },
+  'gamma-ray-burst': { name: 'A Gamma-Ray Burst', desc: 'The most energetic explosion known lit the sky for an instant.' },
+  kilonova: { name: 'A Kilonova', desc: 'Two neutron stars collided, forging gold and platinum in the flash.' },
+  'rogue-planet': { name: 'A Rogue Planet', desc: 'A starless world drifted silently through the dark.' },
+  reborn: { name: 'Cooling', desc: 'A universe completed, and a new one began.' },
+};
 
-let earnedAchievements = new Set(JSON.parse(localStorage.getItem('achievements') || '[]'));
-let visitedLocations = new Set(JSON.parse(localStorage.getItem('visitedLocations') || '[]'));
-let triedPaces = new Set(JSON.parse(localStorage.getItem('triedPaces') || `["${paceName}"]`));
+let witnessed = JSON.parse(localStorage.getItem('witnessed') || '[]'); // [{id, at}]
+let witnessedIds = new Set(witnessed.map((w) => w.id));
 
-function unlockAchievement(id) {
-  if (earnedAchievements.has(id)) return;
-  earnedAchievements.add(id);
-  localStorage.setItem('achievements', JSON.stringify([...earnedAchievements]));
-  const a = ACHIEVEMENTS.find((x) => x.id === id);
-  if (a) toast(`🏆 Achievement unlocked: ${a.name}`);
-  renderAchievements();
-}
-
-function visitLocation(name) {
-  if (!visitedLocations.has(name)) {
-    visitedLocations.add(name);
-    localStorage.setItem('visitedLocations', JSON.stringify([...visitedLocations]));
-    if (ALL_LOCATION_NAMES.every((n) => visitedLocations.has(n))) unlockAchievement('explorer');
+function witnessPhenomenon(id) {
+  const p = PHENOMENA[id];
+  if (!p) return;
+  if (!witnessedIds.has(id)) {
+    witnessedIds.add(id);
+    witnessed.push({ id, at: Date.now() });
+    localStorage.setItem('witnessed', JSON.stringify(witnessed));
+    updateBookButton();
   }
+  showPhenomenonBanner(p.name); // announced every time — seeing it is the reward
 }
 
-function notePaceTried(name) {
-  if (!triedPaces.has(name)) {
-    triedPaces.add(name);
-    localStorage.setItem('triedPaces', JSON.stringify([...triedPaces]));
-    if (triedPaces.size >= 3) unlockAchievement('time-traveler');
-  }
+function updateBookButton() {
+  $('bookBtn').textContent = witnessed.length ? `📖 ${witnessed.length}` : '📖';
+}
+updateBookButton();
+
+let bannerTimer = null;
+function showPhenomenonBanner(name) {
+  const el = $('phenomenonBanner');
+  el.textContent = `✦ ${name}`;
+  el.classList.add('show');
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => el.classList.remove('show'), 4000);
 }
 
-function renderAchievements() {
-  $('achieveCount').textContent = `${earnedAchievements.size}/${ACHIEVEMENTS.length}`;
-  const list = $('achievementList');
+function renderBook() {
+  $('bookIntro').textContent = witnessed.length
+    ? 'A record of rare things you happened to see.'
+    : 'Nothing recorded yet. The universe is full of rare things — keep watching.';
+  const list = $('bookList');
   list.innerHTML = '';
-  for (const a of ACHIEVEMENTS) {
-    const earned = earnedAchievements.has(a.id);
+  for (const w of [...witnessed].sort((a, b) => b.at - a.at)) {
+    const p = PHENOMENA[w.id];
+    if (!p) continue;
+    const when = new Date(w.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     const li = document.createElement('li');
-    li.className = earned ? 'earned' : '';
-    li.innerHTML = `<span class="badge">${earned ? '🏆' : '·'}</span>
-      <span class="meta"><span class="name">${a.name}</span><span class="desc">${a.desc}</span></span>`;
+    li.innerHTML = `<span class="bname">${p.name}<span class="bwhen">${when}</span></span><div class="bdesc">${p.desc}</div>`;
     list.appendChild(li);
   }
 }
-renderAchievements();
 
-// --- Constellations: connect unlocked stars into your own named shapes ----
-
-let constellations = JSON.parse(localStorage.getItem('constellations') || '[]');
-
-function handleCanvasClick(clientX, clientY) {
-  const target = targetBlocks();
-  let closest = null, closestDist = 16; // px hit-radius
-  for (const st of UNI.structures) {
-    if (st.kind !== 'star' || target <= st.start) continue;
-    const p = w2s(posOf(st).x, posOf(st).y);
-    const d = Math.hypot(p.x - clientX, p.y - clientY);
-    if (d < closestDist) { closest = st; closestDist = d; }
-  }
-  if (!closest) return;
-  const i = state.constellationPoints.indexOf(closest.name);
-  if (i === -1) state.constellationPoints.push(closest.name);
-  else state.constellationPoints.splice(i, 1); // clicking a picked star again drops it
-  updateConstellationButton();
-}
-
-function updateConstellationButton() {
-  const btn = $('drawConstellation');
-  const n = state.constellationPoints.length;
-  if (!state.drawingConstellation) {
-    btn.textContent = '✦ Draw a constellation';
-    btn.classList.remove('active');
-    $('constellationHint').classList.remove('show');
-  } else {
-    btn.textContent = n >= 2 ? `✦ Finish (${n} stars)` : `✦ Tap ${2 - n} more star${n === 1 ? '' : 's'}`;
-    btn.classList.add('active');
-    $('constellationHint').classList.add('show');
-  }
-}
-
-$('drawConstellation').onclick = () => {
-  if (!state.drawingConstellation) {
-    state.drawingConstellation = true;
-    state.constellationPoints = [];
-    updateConstellationButton();
-    return;
-  }
-  if (state.constellationPoints.length >= 2) {
-    const name = (prompt('Name this constellation:', '') || '').trim().slice(0, 40);
-    if (name) {
-      constellations.push({ name, stars: [...state.constellationPoints] });
-      localStorage.setItem('constellations', JSON.stringify(constellations));
-      renderConstellations();
-      unlockAchievement('stargazer');
-      toast(`✦ ${name} added to the sky`);
-    }
-  }
-  state.drawingConstellation = false;
-  state.constellationPoints = [];
-  updateConstellationButton();
+$('bookBtn').onclick = () => {
+  renderBook();
+  $('bookPanel').classList.toggle('show');
 };
-
-function renderConstellations() {
-  const list = $('constellationList');
-  list.innerHTML = '';
-  for (let i = 0; i < constellations.length; i++) {
-    const c = constellations[i];
-    const li = document.createElement('li');
-    const label = document.createElement('span');
-    label.textContent = c.name;
-    label.onclick = () => flyToConstellation(c);
-    const del = document.createElement('button');
-    del.className = 'delStar';
-    del.textContent = '×';
-    del.title = 'Remove this constellation';
-    del.onclick = (e) => {
-      e.stopPropagation();
-      constellations.splice(i, 1);
-      localStorage.setItem('constellations', JSON.stringify(constellations));
-      renderConstellations();
-    };
-    li.append(label, del);
-    list.appendChild(li);
-  }
-}
-renderConstellations();
-
-function flyToConstellation(c) {
-  let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
-  for (const name of c.stars) {
-    const st = byName.get(name);
-    if (!st) continue;
-    const pos = posOf(st);
-    minx = Math.min(minx, pos.x - 20); maxx = Math.max(maxx, pos.x + 20);
-    miny = Math.min(miny, pos.y - 20); maxy = Math.max(maxy, pos.y + 20);
-  }
-  if (!isFinite(minx)) return;
-  const cx = (minx + maxx) / 2, cy = (miny + maxy) / 2;
-  const r = visibleRect(false);
-  const z = Math.min(4, Math.max(0.4,
-    Math.min(r.w / ((maxx - minx) * 1.6 * BASE), r.h / ((maxy - miny) * 1.6 * BASE))));
-  state.focus = null; // a constellation view isn't re-fit on resize, just a one-off
-  flyToCentered(cx, cy, z, false);
-}
-
-// Draws saved constellations as faint persistent lines, plus a live
-// preview (brighter, with highlighted stars) while one is being drawn.
-function drawConstellations(t) {
-  ctx.lineWidth = 1;
-  for (const c of constellations) {
-    const pts = c.stars.map((n) => byName.get(n)).filter(Boolean).map((st) => w2s(posOf(st).x, posOf(st).y));
-    if (pts.length < 2) continue;
-    ctx.strokeStyle = 'rgba(200, 170, 240, 0.3)';
-    ctx.beginPath();
-    ctx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-    ctx.stroke();
-    if (cam.z >= 0.8) {
-      ctx.font = '10px ui-monospace, Menlo, monospace';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = 'rgba(216, 178, 240, 0.7)';
-      ctx.fillText(c.name, pts[0].x, pts[0].y - 10);
-    }
-  }
-
-  if (state.drawingConstellation && state.constellationPoints.length) {
-    const pts = state.constellationPoints.map((n) => byName.get(n)).filter(Boolean).map((st) => w2s(posOf(st).x, posOf(st).y));
-    ctx.strokeStyle = `rgba(232, 240, 252, ${0.6 + 0.3 * Math.sin(t * 4)})`;
-    ctx.lineWidth = 1.5;
-    if (pts.length > 1) {
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x, pts[0].y);
-      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-      ctx.stroke();
-    }
-    for (const p of pts) {
-      ctx.strokeStyle = '#eaf2fc';
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 6 + Math.sin(t * 5) * 1.5, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  }
-}
+$('bookClose').onclick = () => $('bookPanel').classList.remove('show');
 
 // --- Cyclic reset: once everything unlockable is fully built, the universe
 // --- can "cool" and a new one begins — a real endgame instead of just
 // --- stopping, and a reason for "eventually" to mean something twice.
-// --- Meta-progress (achievements, visited locations, constellations,
-// --- lifetime totals) all carry over; only the built structures reset,
-// --- redrawn from a new seed so the new universe looks subtly different.
+// --- Meta-progress (the achievement book, lifetime totals) carries over;
+// --- only the built structures reset, redrawn from a new seed so the new
+// --- universe looks subtly different.
 
 function beginNewCycle() {
   const oldTitle = composedTitle();
@@ -2528,7 +2883,7 @@ function beginNewCycle() {
   fitCompleted();
   Object.assign(cam, camTarget);
 
-  unlockAchievement('reborn');
+  witnessPhenomenon('reborn');
   toast(`🌑 ${oldTitle} cools into stardust. ${composedTitle()} begins.`);
 }
 $('beginAgainBtn').onclick = beginNewCycle;
