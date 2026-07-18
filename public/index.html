@@ -12,11 +12,24 @@
 
 <aside id="sidebar">
   <header>
-    <h1>🌌 Idle Cosmos</h1>
+    <h1 id="brandTitle">Idle Cosmos</h1>
     <p class="tagline">A cosmos built slowly, one token at a time. Drag to pan, scroll to zoom, click a location to visit it.</p>
   </header>
+  <div id="personalize">
+    <input id="ownerName" type="text" maxlength="24" placeholder="Name this universe (optional)">
+  </div>
   <h2>Atlas</h2>
   <ul id="locationList"></ul>
+  <div id="constellationCtl">
+    <h2>Constellations</h2>
+    <ul id="constellationList"></ul>
+    <button id="drawConstellation">✦ Draw a constellation</button>
+    <p class="paceNote" id="constellationHint">Click 2 or more stars, then finish to name it.</p>
+  </div>
+  <div id="achievementCtl">
+    <h2>Achievements <span id="achieveCount"></span></h2>
+    <ul id="achievementList"></ul>
+  </div>
   <div id="paceCtl">
     <h2>Pace</h2>
     <div class="modes">
@@ -42,6 +55,7 @@
   <div class="track"><div id="milestoneFill"></div></div>
   <div id="structLabel"></div>
   <div class="track slim"><div id="structFill"></div></div>
+  <button id="beginAgainBtn">The universe cools. Begin again ↻</button>
 </div>
 
 <div id="infoPanel">

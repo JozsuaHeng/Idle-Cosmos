@@ -51,6 +51,13 @@ const PACES = {
 let paceName = localStorage.getItem('pace');
 if (!PACES[paceName]) paceName = 'patient';
 let ENERGY_PER_BLOCK = PACES[paceName].epb;
+// Which universe-cycle this is (see the reset mechanic near the bottom of
+// this file) — declared early so composedTitle() can reference it safely
+// regardless of where in the file it's read from.
+let cycleNumber = parseInt(localStorage.getItem('cycleNumber') || '1', 10) || 1;
+// Lifetime energy at the moment the current cycle began — 0 for cycle 1,
+// so existing progress is completely unaffected by this feature existing.
+let cycleStartEnergy = parseFloat(localStorage.getItem('cycleStartEnergy') || '0') || 0;
 const BASE = 3;                    // css px per block at zoom 1
 const WB = 2400, HB = 1900;        // world size in blocks
 const SUN = { x: 500, y: 950 };
@@ -243,8 +250,19 @@ const EARTH_MAP = [
   '.................................',
 ];
 
-function buildSequence() {
-  const rng = mulberry32(0xC05305);
+// The seed the very first cycle has always used — kept as the default so
+// nobody's current universe changes appearance from this refactor.
+const BASE_SEED = 0xC05305;
+
+// Derives a distinct seed per universe-cycle (see the reset mechanic near
+// the end of this file). Cycle 1 always maps back to BASE_SEED exactly.
+function cycleSeedFor(n) {
+  if (n <= 1) return BASE_SEED;
+  return (BASE_SEED ^ Math.imul(n, 0x9e3779b1)) >>> 0;
+}
+
+function buildSequence(seed) {
+  const rng = mulberry32(seed);
   const S = [];
 
   const sun = makeBody(rng, {
@@ -499,7 +517,7 @@ function buildSequence() {
   }
 
   // The Milky Way's galactic field — lazy, huge.
-  const fieldRng = mulberry32(0x9A1AC7);
+  const fieldRng = mulberry32(seed ^ 0x9A1AC7);
   const fieldBlocks = [];
   const A = { x: 150, y: 1800 }, B = { x: 2300, y: 150 };
   S.push({
@@ -666,7 +684,7 @@ function buildSequence() {
 
   // The Whirlpool Galaxy (M51) — a grand-design spiral with a companion.
   {
-    const gRng = mulberry32(0x77C1A0);
+    const gRng = mulberry32(seed ^ 0x77C1A0);
     const whirl = makeSpiralGalaxy(gRng, {
       name: 'the Whirlpool Galaxy', cx: 120, cy: 1700, R: 26,
       coreColors: ['#f2ecd8', '#e8dcc0'],
@@ -692,7 +710,7 @@ function buildSequence() {
 
   // The Virgo Cluster: the nearest large galaxy cluster, anchored by M87.
   {
-    const vRng = mulberry32(0x5E11C0);
+    const vRng = mulberry32(seed ^ 0x5E11C0);
     const blocks = [];
     // A scatter of small elliptical/spiral member galaxies.
     for (let i = 0; i < 22; i++) {
@@ -723,7 +741,7 @@ function buildSequence() {
   // The Bullet Cluster: two galaxy clusters colliding — the classic
   // observational evidence for dark matter.
   {
-    const bRng = mulberry32(0x8B11E7);
+    const bRng = mulberry32(seed ^ 0x8B11E7);
     const blocks = [];
     // Pink: hot X-ray gas, slowed by the collision, lagging behind.
     for (let i = 0; i < 140; i++) {
@@ -748,7 +766,7 @@ function buildSequence() {
   // The Hubble Ultra Deep Field: a tiny patch of "empty" sky revealed as
   // packed with thousands of ancient, distant galaxies.
   {
-    const hRng = mulberry32(0xF0C05E);
+    const hRng = mulberry32(seed ^ 0xF0C05E);
     const blocks = [];
     const cols = ['#e8dcc0', '#c8d4ec', '#e8b8a0', '#b8e0d0', '#d8c8e8', '#f2ecd8'];
     for (let i = 0; i < 500; i++) {
@@ -765,7 +783,7 @@ function buildSequence() {
 
   // The Cosmic Microwave Background: the oldest light in the universe.
   {
-    const cRng = mulberry32(0xC0B3B6);
+    const cRng = mulberry32(seed ^ 0xC0B3B6);
     const blocks = [];
     for (const c of discCells(22)) {
       const n = Math.sin(c.dx * 0.5 + 1.2) + Math.sin(c.dy * 0.6 - 0.7) + Math.sin((c.dx + c.dy) * 0.35) + (cRng() - 0.5) * 1.4;
@@ -884,8 +902,8 @@ const grid = document.createElement('canvas');
 grid.width = WB; grid.height = HB;
 const gctx = grid.getContext('2d');
 
-const UNI = buildSequence();
-const byName = new Map(UNI.structures.map((s) => [s.name, s]));
+let UNI = buildSequence(cycleSeedFor(cycleNumber));
+let byName = new Map(UNI.structures.map((s) => [s.name, s]));
 
 const state = {
   sessions: new Map(),
@@ -901,6 +919,8 @@ const state = {
   loaded: false,
   collapsed: new Set(),
   focus: null, // { kind: 'home' } or { kind: 'loc', name } — re-applied on resize
+  drawingConstellation: false,
+  constellationPoints: [], // star names picked so far, while drawing
   reduceMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
 };
 
@@ -994,7 +1014,10 @@ function currentSession() {
 }
 
 function targetBlocks() {
-  return Math.min(UNI.total, Math.floor(totalEnergy() / ENERGY_PER_BLOCK));
+  // Progress is measured from where THIS cycle began, not lifetime energy —
+  // otherwise a fresh cycle after a reset would instantly complete again.
+  const cycleEnergy = Math.max(0, totalEnergy() - cycleStartEnergy);
+  return Math.min(UNI.total, Math.floor(cycleEnergy / ENERGY_PER_BLOCK));
 }
 
 function structDone(s) { return targetBlocks() >= s.start + (s.count || 0); }
@@ -1189,6 +1212,21 @@ const SHARD_COLORS = ['#e8eef8', '#ffffff', '#c8d4e8', '#9aa4b5', '#3a5a9e', '#5
 // --- Ambient sky: shooting stars, meteors, drifting debris ---------------
 
 function spawnAmbient(now) {
+  if (Math.random() < 0.004) {
+    // A rare, unforced flourish — not tied to any metric or milestone, just
+    // occasional variety (a twin, oddly-coloured streak) so the sky never
+    // feels like it's cycling through the same three things on a loop.
+    const fromTop = Math.random() < 0.7;
+    const color = Math.random() < 0.5 ? '198, 240, 200' : '216, 178, 240'; // emerald or violet, as rgb triples
+    const x = Math.random() * W, y = fromTop ? -10 : Math.random() * H * 0.4;
+    const vx = (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 5);
+    const vy = 4 + Math.random() * 4;
+    for (const dx of [0, 12]) {
+      state.ambient.push({ kind: 'rare', x: x + dx, y, vx, vy, color, life: 1, decay: 1 / 0.6 });
+    }
+    state.nextAmbientAt = now + 700 + Math.random() * 1800;
+    return;
+  }
   const roll = Math.random();
   if (roll < 0.35) {
     // Shooting star: a fast bright streak.
@@ -1237,12 +1275,13 @@ function drawAmbient(now, dt) {
       continue;
     }
     const fade = Math.min(1, a.life * 2.5);
-    if (a.kind === 'shooting') {
+    if (a.kind === 'shooting' || a.kind === 'rare') {
+      const rgb = a.kind === 'rare' ? a.color : '232, 240, 252';
       const grad = ctx.createLinearGradient(a.x, a.y, a.x - a.vx * 6, a.y - a.vy * 6);
-      grad.addColorStop(0, `rgba(232, 240, 252, ${fade})`);
-      grad.addColorStop(1, 'rgba(232, 240, 252, 0)');
+      grad.addColorStop(0, `rgba(${rgb}, ${fade})`);
+      grad.addColorStop(1, `rgba(${rgb}, 0)`);
       ctx.strokeStyle = grad;
-      ctx.lineWidth = 1.4;
+      ctx.lineWidth = a.kind === 'rare' ? 1.7 : 1.4;
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
       ctx.lineTo(a.x - a.vx * 6, a.y - a.vy * 6);
@@ -1316,12 +1355,28 @@ function clampCam() {
   camTarget.y = Math.min(HB, Math.max(0, camTarget.y));
 }
 
-let dragging = false, lastMouse = null;
+let dragging = false, lastMouse = null, dragDistance = 0, mouseDownOnCanvas = false;
 
-canvas.addEventListener('mousedown', (e) => { dragging = true; lastMouse = { x: e.clientX, y: e.clientY }; });
-window.addEventListener('mouseup', () => { dragging = false; });
+canvas.addEventListener('mousedown', (e) => {
+  dragging = true;
+  mouseDownOnCanvas = true;
+  dragDistance = 0;
+  lastMouse = { x: e.clientX, y: e.clientY };
+});
+window.addEventListener('mouseup', (e) => {
+  dragging = false;
+  // A mouseup with barely any movement is a click, not a pan — used to
+  // pick stars while drawing a constellation. Only counts if the press
+  // also started on the canvas, so clicking a sidebar/UI button never
+  // misfires a star pick using a stale drag distance.
+  if (mouseDownOnCanvas && dragDistance < 4 && state.drawingConstellation) {
+    handleCanvasClick(e.clientX, e.clientY);
+  }
+  mouseDownOnCanvas = false;
+});
 window.addEventListener('mousemove', (e) => {
   if (!dragging) return;
+  dragDistance += Math.abs(e.clientX - lastMouse.x) + Math.abs(e.clientY - lastMouse.y);
   const s = BASE * cam.z;
   camTarget.x -= (e.clientX - lastMouse.x) / s;
   camTarget.y -= (e.clientY - lastMouse.y) / s;
@@ -1579,6 +1634,7 @@ function renderLocations() {
 // --- Info panel (right side): description + real stats, hover or click ----
 
 function showInfo(s) {
+  visitLocation(s.name);
   const st = locationState(s);
   $('infoTitle').textContent = cap(s.name);
   const target = targetBlocks();
@@ -1997,6 +2053,8 @@ function frame(now) {
     ctx.stroke();
   }
 
+  drawConstellations(t);
+
   ctx.imageSmoothingEnabled = false;
   const vw = W / s, vh = H / s;
   ctx.drawImage(grid, cam.x - vw / 2, cam.y - vh / 2, vw, vh, 0, 0, W, H);
@@ -2128,8 +2186,10 @@ function updateHUD() {
     $('milestoneFill').style.width = '100%';
     $('structLabel').textContent = 'every location fully built';
     $('structFill').style.width = '100%';
+    $('beginAgainBtn').classList.add('show');
     return;
   }
+  $('beginAgainBtn').classList.remove('show');
   const info = blockAt(target);
   if (info && info.layer) {
     const { s: st, layer } = info;
@@ -2177,6 +2237,7 @@ function setPace(name) {
   renderLocations();
   updatePaceButtons();
   toast(`Pace: ${name} — ${PACES[name].blurb}`);
+  notePaceTried(name);
 }
 
 function updatePaceButtons() {
@@ -2190,13 +2251,287 @@ for (const b of document.querySelectorAll('#paceCtl button')) {
 }
 updatePaceButtons();
 
+// --- Personalization: an optional name for this universe -----------------
+
+let ownerName = (localStorage.getItem('ownerName') || '').slice(0, 24);
+$('ownerName').value = ownerName;
+
+// Builds the one composed title used everywhere (sidebar, HUD, tab title,
+// download filename) so they can never drift out of sync with each other.
+function composedTitle() {
+  let t = 'Idle Cosmos';
+  if (ownerName) t += `: ${ownerName}’s Universe`;
+  if (cycleNumber > 1) t += ` · Cycle ${cycleNumber}`;
+  return t;
+}
+
+function updateBranding() {
+  const title = composedTitle();
+  $('brandTitle').textContent = title;
+  $('universeName').textContent = title;
+  document.title = title;
+}
+
+let ownerNameSaveTimer = null;
+$('ownerName').addEventListener('input', (e) => {
+  ownerName = e.target.value.trim().slice(0, 24);
+  clearTimeout(ownerNameSaveTimer);
+  ownerNameSaveTimer = setTimeout(() => {
+    localStorage.setItem('ownerName', ownerName);
+    updateBranding();
+  }, 500);
+});
+$('ownerName').addEventListener('blur', () => {
+  localStorage.setItem('ownerName', ownerName);
+  updateBranding();
+});
+$('ownerName').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') e.target.blur();
+});
+
+updateBranding();
+
 $('snapBtn').onclick = () => {
   const a = document.createElement('a');
-  a.download = "idle-cosmos.png";
+  const slug = composedTitle().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  a.download = `${slug}.png`;
   a.href = canvas.toDataURL('image/png');
   a.click();
   toast('📸 Universe saved as an image');
+  unlockAchievement('cartographer');
 };
+
+// --- Achievements: quiet, passive recognition — nothing timed, nothing you
+// --- can fail. Persisted per browser, independent of universe cycles.
+
+const ACHIEVEMENTS = [
+  { id: 'explorer', name: 'Explorer', desc: 'Opened every location in the atlas' },
+  { id: 'time-traveler', name: 'Time Traveler', desc: 'Tried Patient, Steady, and Eager pace' },
+  { id: 'cartographer', name: 'Cartographer', desc: 'Saved a picture of the universe' },
+  { id: 'stargazer', name: 'Stargazer', desc: 'Drew and named a constellation' },
+  { id: 'reborn', name: 'Reborn', desc: 'Watched a universe complete and begin again' },
+];
+const ALL_LOCATION_NAMES = ATLAS.flatMap((g) => g.names);
+
+let earnedAchievements = new Set(JSON.parse(localStorage.getItem('achievements') || '[]'));
+let visitedLocations = new Set(JSON.parse(localStorage.getItem('visitedLocations') || '[]'));
+let triedPaces = new Set(JSON.parse(localStorage.getItem('triedPaces') || `["${paceName}"]`));
+
+function unlockAchievement(id) {
+  if (earnedAchievements.has(id)) return;
+  earnedAchievements.add(id);
+  localStorage.setItem('achievements', JSON.stringify([...earnedAchievements]));
+  const a = ACHIEVEMENTS.find((x) => x.id === id);
+  if (a) toast(`🏆 Achievement unlocked: ${a.name}`);
+  renderAchievements();
+}
+
+function visitLocation(name) {
+  if (!visitedLocations.has(name)) {
+    visitedLocations.add(name);
+    localStorage.setItem('visitedLocations', JSON.stringify([...visitedLocations]));
+    if (ALL_LOCATION_NAMES.every((n) => visitedLocations.has(n))) unlockAchievement('explorer');
+  }
+}
+
+function notePaceTried(name) {
+  if (!triedPaces.has(name)) {
+    triedPaces.add(name);
+    localStorage.setItem('triedPaces', JSON.stringify([...triedPaces]));
+    if (triedPaces.size >= 3) unlockAchievement('time-traveler');
+  }
+}
+
+function renderAchievements() {
+  $('achieveCount').textContent = `${earnedAchievements.size}/${ACHIEVEMENTS.length}`;
+  const list = $('achievementList');
+  list.innerHTML = '';
+  for (const a of ACHIEVEMENTS) {
+    const earned = earnedAchievements.has(a.id);
+    const li = document.createElement('li');
+    li.className = earned ? 'earned' : '';
+    li.innerHTML = `<span class="badge">${earned ? '🏆' : '·'}</span>
+      <span class="meta"><span class="name">${a.name}</span><span class="desc">${a.desc}</span></span>`;
+    list.appendChild(li);
+  }
+}
+renderAchievements();
+
+// --- Constellations: connect unlocked stars into your own named shapes ----
+
+let constellations = JSON.parse(localStorage.getItem('constellations') || '[]');
+
+function handleCanvasClick(clientX, clientY) {
+  const target = targetBlocks();
+  let closest = null, closestDist = 16; // px hit-radius
+  for (const st of UNI.structures) {
+    if (st.kind !== 'star' || target <= st.start) continue;
+    const p = w2s(posOf(st).x, posOf(st).y);
+    const d = Math.hypot(p.x - clientX, p.y - clientY);
+    if (d < closestDist) { closest = st; closestDist = d; }
+  }
+  if (!closest) return;
+  const i = state.constellationPoints.indexOf(closest.name);
+  if (i === -1) state.constellationPoints.push(closest.name);
+  else state.constellationPoints.splice(i, 1); // clicking a picked star again drops it
+  updateConstellationButton();
+}
+
+function updateConstellationButton() {
+  const btn = $('drawConstellation');
+  const n = state.constellationPoints.length;
+  if (!state.drawingConstellation) {
+    btn.textContent = '✦ Draw a constellation';
+    btn.classList.remove('active');
+    $('constellationHint').classList.remove('show');
+  } else {
+    btn.textContent = n >= 2 ? `✦ Finish (${n} stars)` : `✦ Tap ${2 - n} more star${n === 1 ? '' : 's'}`;
+    btn.classList.add('active');
+    $('constellationHint').classList.add('show');
+  }
+}
+
+$('drawConstellation').onclick = () => {
+  if (!state.drawingConstellation) {
+    state.drawingConstellation = true;
+    state.constellationPoints = [];
+    updateConstellationButton();
+    return;
+  }
+  if (state.constellationPoints.length >= 2) {
+    const name = (prompt('Name this constellation:', '') || '').trim().slice(0, 40);
+    if (name) {
+      constellations.push({ name, stars: [...state.constellationPoints] });
+      localStorage.setItem('constellations', JSON.stringify(constellations));
+      renderConstellations();
+      unlockAchievement('stargazer');
+      toast(`✦ ${name} added to the sky`);
+    }
+  }
+  state.drawingConstellation = false;
+  state.constellationPoints = [];
+  updateConstellationButton();
+};
+
+function renderConstellations() {
+  const list = $('constellationList');
+  list.innerHTML = '';
+  for (let i = 0; i < constellations.length; i++) {
+    const c = constellations[i];
+    const li = document.createElement('li');
+    const label = document.createElement('span');
+    label.textContent = c.name;
+    label.onclick = () => flyToConstellation(c);
+    const del = document.createElement('button');
+    del.className = 'delStar';
+    del.textContent = '×';
+    del.title = 'Remove this constellation';
+    del.onclick = (e) => {
+      e.stopPropagation();
+      constellations.splice(i, 1);
+      localStorage.setItem('constellations', JSON.stringify(constellations));
+      renderConstellations();
+    };
+    li.append(label, del);
+    list.appendChild(li);
+  }
+}
+renderConstellations();
+
+function flyToConstellation(c) {
+  let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
+  for (const name of c.stars) {
+    const st = byName.get(name);
+    if (!st) continue;
+    const pos = posOf(st);
+    minx = Math.min(minx, pos.x - 20); maxx = Math.max(maxx, pos.x + 20);
+    miny = Math.min(miny, pos.y - 20); maxy = Math.max(maxy, pos.y + 20);
+  }
+  if (!isFinite(minx)) return;
+  const cx = (minx + maxx) / 2, cy = (miny + maxy) / 2;
+  const r = visibleRect(false);
+  const z = Math.min(4, Math.max(0.4,
+    Math.min(r.w / ((maxx - minx) * 1.6 * BASE), r.h / ((maxy - miny) * 1.6 * BASE))));
+  state.focus = null; // a constellation view isn't re-fit on resize, just a one-off
+  flyToCentered(cx, cy, z, false);
+}
+
+// Draws saved constellations as faint persistent lines, plus a live
+// preview (brighter, with highlighted stars) while one is being drawn.
+function drawConstellations(t) {
+  ctx.lineWidth = 1;
+  for (const c of constellations) {
+    const pts = c.stars.map((n) => byName.get(n)).filter(Boolean).map((st) => w2s(posOf(st).x, posOf(st).y));
+    if (pts.length < 2) continue;
+    ctx.strokeStyle = 'rgba(200, 170, 240, 0.3)';
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.stroke();
+    if (cam.z >= 0.8) {
+      ctx.font = '10px ui-monospace, Menlo, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(216, 178, 240, 0.7)';
+      ctx.fillText(c.name, pts[0].x, pts[0].y - 10);
+    }
+  }
+
+  if (state.drawingConstellation && state.constellationPoints.length) {
+    const pts = state.constellationPoints.map((n) => byName.get(n)).filter(Boolean).map((st) => w2s(posOf(st).x, posOf(st).y));
+    ctx.strokeStyle = `rgba(232, 240, 252, ${0.6 + 0.3 * Math.sin(t * 4)})`;
+    ctx.lineWidth = 1.5;
+    if (pts.length > 1) {
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.stroke();
+    }
+    for (const p of pts) {
+      ctx.strokeStyle = '#eaf2fc';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 6 + Math.sin(t * 5) * 1.5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+}
+
+// --- Cyclic reset: once everything unlockable is fully built, the universe
+// --- can "cool" and a new one begins — a real endgame instead of just
+// --- stopping, and a reason for "eventually" to mean something twice.
+// --- Meta-progress (achievements, visited locations, constellations,
+// --- lifetime totals) all carry over; only the built structures reset,
+// --- redrawn from a new seed so the new universe looks subtly different.
+
+function beginNewCycle() {
+  const oldTitle = composedTitle();
+  cycleStartEnergy = totalEnergy();
+  cycleNumber += 1;
+  localStorage.setItem('cycleStartEnergy', String(cycleStartEnergy));
+  localStorage.setItem('cycleNumber', String(cycleNumber));
+
+  UNI = buildSequence(cycleSeedFor(cycleNumber));
+  byName = new Map(UNI.structures.map((s) => [s.name, s]));
+
+  gctx.clearRect(0, 0, WB, HB);
+  state.placed = 0;
+  state.sparks = [];
+  state.assemblies = [];
+  state.twinklers = [];
+  state.flashes = [];
+  state.budget = 0;
+  lastAtlasKey = '';
+  renderLocations();
+  updateBranding();
+  $('beginAgainBtn').classList.remove('show');
+
+  state.focus = { kind: 'home' };
+  fitCompleted();
+  Object.assign(cam, camTarget);
+
+  unlockAchievement('reborn');
+  toast(`🌑 ${oldTitle} cools into stardust. ${composedTitle()} begins.`);
+}
+$('beginAgainBtn').onclick = beginNewCycle;
 
 // --- "Go to what's building" — jumps straight to the active construction site ---
 
