@@ -45,8 +45,8 @@ function mulberry32(seed) {
 // lossless (everything is deterministic) and remembered per browser.
 const PACES = {
   patient: { epb: 22_000, blurb: 'the slow burn' },
-  steady: { epb: 18_300, blurb: 'a little faster' }, // ×1.2
-  eager: { epb: 15_700, blurb: 'a bit faster still' }, // ×1.4
+  steady: { epb: 20_000, blurb: 'a little faster' }, // ×1.1
+  eager: { epb: 18_300, blurb: 'a bit faster still' }, // ×1.2
 };
 let paceName = localStorage.getItem('pace');
 if (!PACES[paceName]) paceName = 'patient';
@@ -908,7 +908,7 @@ const SPECKS = (() => {
   for (let i = 0; i < 1500; i++) {
     out.push({
       x: r() * WB, y: r() * HB,
-      a: 0.09 + r() * 0.22,
+      a: 0.16 + r() * 0.32,
       c: r() < 0.7 ? '#c8cdd8' : '#ffffff',
       tw: r() < 0.08 ? 0.3 + r() * 0.8 : 0,
       ph: r() * 6.28,
@@ -1219,7 +1219,7 @@ function spawnAmbient(now) {
       life: 1, decay: 1 / (9 + Math.random() * 5),
     });
   }
-  state.nextAmbientAt = now + 1500 + Math.random() * 3500;
+  state.nextAmbientAt = now + 700 + Math.random() * 1800;
 }
 
 function drawAmbient(now, dt) {
@@ -1236,7 +1236,7 @@ function drawAmbient(now, dt) {
     const fade = Math.min(1, a.life * 2.5);
     if (a.kind === 'shooting') {
       const grad = ctx.createLinearGradient(a.x, a.y, a.x - a.vx * 6, a.y - a.vy * 6);
-      grad.addColorStop(0, `rgba(232, 240, 252, ${0.8 * fade})`);
+      grad.addColorStop(0, `rgba(232, 240, 252, ${fade})`);
       grad.addColorStop(1, 'rgba(232, 240, 252, 0)');
       ctx.strokeStyle = grad;
       ctx.lineWidth = 1.4;
@@ -1248,16 +1248,16 @@ function drawAmbient(now, dt) {
       a.trail.unshift({ x: a.x, y: a.y });
       if (a.trail.length > 9) a.trail.pop();
       for (let k = 0; k < a.trail.length; k++) {
-        ctx.globalAlpha = 0.5 * fade * (1 - k / a.trail.length);
+        ctx.globalAlpha = 0.68 * fade * (1 - k / a.trail.length);
         ctx.fillStyle = '#c8d4e8';
         ctx.fillRect(a.trail[k].x, a.trail[k].y, 2, 2);
       }
-      ctx.globalAlpha = 0.75 * fade;
+      ctx.globalAlpha = 0.92 * fade;
       ctx.fillStyle = '#e8eef8';
       ctx.fillRect(a.x - 1, a.y - 1, 2.5, 2.5);
     } else {
       a.spin += dt / 900;
-      ctx.globalAlpha = 0.38 * fade;
+      ctx.globalAlpha = 0.55 * fade;
       ctx.fillStyle = '#9aa4b5';
       for (let k = 0; k < 3; k++) {
         const ang = a.spin + (k * 6.28) / 3;
