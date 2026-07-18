@@ -44,9 +44,9 @@ function mulberry32(seed) {
 // same tokens, same universe, just more of it revealed. Switching is
 // lossless (everything is deterministic) and remembered per browser.
 const PACES = {
-  patient: { epb: 22_000, blurb: 'the slow burn — a planet takes days' },
-  steady: { epb: 15_000, blurb: '×1.5 faster' },
-  eager: { epb: 11_000, blurb: '×2 faster' },
+  patient: { epb: 22_000, blurb: 'the slow burn' },
+  steady: { epb: 18_300, blurb: 'a little faster' }, // ×1.2
+  eager: { epb: 15_700, blurb: 'a bit faster still' }, // ×1.4
 };
 let paceName = localStorage.getItem('pace');
 if (!PACES[paceName]) paceName = 'patient';
