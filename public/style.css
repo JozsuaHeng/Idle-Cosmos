@@ -339,3 +339,20 @@ body:has(#sidebar:not(.hidden)) #sidebarToggle { left: 242px; }
   cursor: pointer;
 }
 #infoClose:hover { color: #dce8fa; }
+
+/* ---- narrow screens (phones): keep panels from overlapping/overflowing ---- */
+@media (max-width: 700px) {
+  #hud { max-width: 62vw; }
+  #universeName { font-size: 15px; }
+  #hud .stat, #hud .stat.total { font-size: 11px; }
+  #blocksVal { font-size: 10px; }
+  #claudeStatus { font-size: 10px; }
+  #sidebar { width: min(230px, 80vw); }
+  body:has(#sidebar:not(.hidden)) #sidebarToggle { left: min(242px, calc(80vw + 12px)); }
+  #infoPanel, #formulaPanel { width: min(300px, 90vw); }
+  /* Free-floating centred bar would otherwise run under the bottom-right
+     button column on a narrow screen — anchor it between the edges
+     that are actually free instead. */
+  #milestoneBar { left: 12px; right: 130px; transform: none; width: auto; }
+  #milestoneLabel, #structLabel { font-size: 10px; }
+}

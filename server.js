@@ -316,6 +316,12 @@ const server = http.createServer(async (req, res) => {
     return sendJSON(res, { sessions: sessionList() });
   }
 
+  if (url.pathname === '/api/config') {
+    // Single source of truth for the token->energy weights, so the page
+    // never has to keep its own copy in sync with this file by hand.
+    return sendJSON(res, { weights: WEIGHTS });
+  }
+
   if (url.pathname === '/api/version') {
     // Lets the page notice when public/ files change (e.g. Claude edited
     // them) and reload itself, so an already-open tab doesn't keep

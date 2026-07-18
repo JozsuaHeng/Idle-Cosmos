@@ -57,7 +57,10 @@ const SUN = { x: 500, y: 950 };
 const FIELD_CAP = 12_000;
 // Must mirror server.js's WEIGHTS — duplicated here so the info panel can
 // show the formula without a round trip to the server.
-const FORMULA_WEIGHTS = { input: 1, output: 3, cacheCreate: 1, cacheRead: 0.08 };
+// Fallback only — overwritten at boot by /api/config, which reads the real
+// WEIGHTS constant in server.js directly, so this can never silently drift
+// out of sync with what the server actually computes.
+let FORMULA_WEIGHTS = { input: 1, output: 3, cacheCreate: 1, cacheRead: 0.08 };
 
 // ---------------------------------------------------------------------------
 // Pixel-art builders
@@ -2246,6 +2249,13 @@ $('formulaBtn').onclick = () => {
   $('formulaPanel').classList.toggle('show');
 };
 $('formulaClose').onclick = () => $('formulaPanel').classList.remove('show');
+// Keep it live while open — a snapshot taken once would silently go stale
+// if you leave the panel open while Claude keeps working.
+setInterval(() => { if ($('formulaPanel').classList.contains('show')) renderFormula(); }, 2000);
+
+fetch('/api/config').then((r) => r.json()).then((cfg) => {
+  if (cfg.weights) FORMULA_WEIGHTS = cfg.weights;
+}).catch(() => {}); // keep the fallback constant if the server is unreachable
 
 // --- Auto-reload when the app's own files change on disk, so an already- ---
 // --- open tab never keeps running stale code after an edit.             ---
@@ -2264,6 +2274,11 @@ async function checkVersion() {
 }
 setInterval(checkVersion, 6000);
 checkVersion();
+
+// On a phone-width screen the fixed 230px sidebar eats most of the view —
+// start with the atlas tucked away so the universe itself is visible; the
+// hamburger button still opens it on demand.
+if (window.innerWidth < 700) $('sidebar').classList.add('hidden');
 
 resize();
 connect();
