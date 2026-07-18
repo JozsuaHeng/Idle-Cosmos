@@ -1,38 +1,64 @@
 # Idle Cosmos (token-universe)
 
 A local web app that turns Claude Code token usage into ONE slowly-built
-pixel model of the real known universe. All sessions' tokens pool into
-"cosmic energy" (~22,000 energy = 1 block, `ENERGY_PER_BLOCK` in app.js);
-blocks assemble the Sun and planets core-outward with real geological
-layers (Earth: inner core → outer core → mantles → crust → surface →
-atmosphere), then belts, named nearby stars, and the Milky Way field.
-The world is pannable/zoomable (drag + wheel + bottom-right control,
-`?goto=Earth&z=6` deep links).
+pixel model of the real known universe. Every session's tokens pool into
+"cosmic energy" (`ENERGY_PER_BLOCK` in `public/app.js`, three selectable
+paces — Patient/Steady/Eager); blocks assemble the Sun and planets
+core-outward with real geological layers, then belts, named stars, deep-sky
+objects (nebulae, galaxies, black holes, the CMB), all the way out to the
+Laniakea Supercluster. Once everything unlockable is fully built, the
+universe can "cool" and a new cycle begins from a new seed (`beginNewCycle`)
+— meta-progress (the achievement book, lifetime totals) carries over.
 
 ## How it works
 
 - `server.js` — zero-dependency Node server on `http://localhost:4816`. It
   **reads** (never writes) Claude Code's own session logs in
   `~/.claude/projects/**/*.jsonl`, tallies token usage per session, and
-  streams live updates to the page over Server-Sent Events. No API keys, no
-  network calls, nothing leaves the machine.
-- `public/` — the universe page. Canvas-based, deterministic per session:
-  the session id seeds the random generator, so the same session always
-  rebuilds the exact same universe (that's also how "saving" works — every
-  universe is reproducible from its log).
+  streams live updates over Server-Sent Events. No API keys, no outbound
+  network calls, nothing leaves the machine. Also serves `/api/config`
+  (the real token→energy weights, so the client never hand-duplicates them)
+  and `/api/version` (lets an already-open tab detect file changes and
+  auto-reload instead of running stale code indefinitely).
+- `public/` — the universe page. Canvas-based, fully deterministic: a fixed
+  base seed (XORed with the cycle number) drives every RNG call, so the
+  same cycle always rebuilds pixel-identical. Camera framing
+  (`visibleRect`, `flyToCentered`, `fitCompleted`) measures the *actual*
+  current window/panel state rather than fixed pixel guesses, and re-fits
+  on resize — this was a real bug once (see git log), not a hypothetical.
 - `hooks/open-universe.sh` — a Claude Code `UserPromptSubmit` hook that
   starts the server if needed and opens the page only if no tab is already
-  connected. Installed in `~/.claude/settings.json`.
+  connected. Installed in `~/.claude/settings.json` (user-level).
+
+## Notable systems
+
+- **Pace** (`PACES`): Patient/Steady/Eager just change `ENERGY_PER_BLOCK`;
+  switching is lossless since everything derives from real token totals.
+- **Achievement book** (`PHENOMENA`, `witnessPhenomenon`): rare ambient sky
+  events (supernova, black hole, quasar, GRB, kilonova, rogue planet,
+  meteoroid collision, the "twin streak" rarity, and cycle completion) are
+  silently recorded to `localStorage` on first sighting. The book UI
+  (📖 button) never lists undiscovered entries — by design, don't add a
+  "here's everything you can find" list.
+- **Personalization**: an optional name composes into the title everywhere
+  via `composedTitle()` — never hardcode "Idle Cosmos" elsewhere; call that
+  function instead so cycle number / owner name stay in sync.
+- **Ornaments** (`drawOrnaments`): real spacecraft/rovers per body (Ingenuity
+  at Mars, Voyager 2 at Uranus+Neptune, Cassini's Grand Finale at Saturn,
+  etc.), plus one deliberate non-real one (a UFO at Earth).
 
 ## Design constraints
 
 - Zero npm dependencies; only Node built-ins.
-- Keep CPU/GPU use light: stars render once to an offscreen layer, only a
-  few twinklers/objects/particles animate per frame, loop idles when the
-  tab is hidden, respects `prefers-reduced-motion`.
-- Energy formula lives in `server.js` (`WEIGHTS`): output tokens ×3,
-  input/cache-write ×1, cache-read ×0.08. Milestone thresholds live in
-  `public/app.js` (`MILESTONES`).
+- Keep CPU/GPU use light: the placed-block grid renders once to an offscreen
+  canvas, only twinklers/ambient events/ornaments animate per frame, the
+  loop idles when the tab is hidden, and it respects `prefers-reduced-motion`.
+- Background specks (`drawSpecks`) are procedural/infinite via a hash
+  function, not a fixed pre-seeded array — needed so they're still visible
+  at extreme zoom-out (down to 0.3%) instead of only existing within the
+  built world's fixed bounds.
+- Mobile: sidebar starts collapsed under 700px width; see the `@media`
+  block in `style.css` for panel-overlap fixes specific to narrow screens.
 
 ## Running manually
 

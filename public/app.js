@@ -1133,21 +1133,44 @@ const state = {
   reduceMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
 };
 
-// Faint background specks so the void is never pure black.
-const SPECKS = (() => {
-  const r = mulberry32(0x5BECC5);
-  const out = [];
-  for (let i = 0; i < 1500; i++) {
-    out.push({
-      x: r() * WB, y: r() * HB,
-      a: 0.16 + r() * 0.32,
-      c: r() < 0.7 ? '#c8cdd8' : '#ffffff',
-      tw: r() < 0.08 ? 0.3 + r() * 0.8 : 0,
-      ph: r() * 6.28,
-    });
+// Faint background specks so the void is never pure black — procedural and
+// infinite (not limited to the built WB×HB world), so they're still there
+// no matter how far out you zoom. The cell size is locked to screen space
+// (scales with 1/zoom), so the ON-SCREEN density of specks stays roughly
+// constant at any zoom instead of exploding into clutter when zoomed out
+// or thinning to nothing within a small area when zoomed in.
+const SPECK_SEED = 0x5bec_c5;
+function speckHash(gx, gy, salt) {
+  let h = (gx * 374761393 + gy * 668265263 + SPECK_SEED + salt * 2654435761) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+
+function drawSpecks(t, s) {
+  const cellWorld = Math.max(4, 42 / s); // ~42 CSS px average spacing, at any zoom
+  const vw = W / s, vh = H / s;
+  const gx0 = Math.floor((cam.x - vw / 2) / cellWorld) - 1;
+  const gx1 = Math.ceil((cam.x + vw / 2) / cellWorld) + 1;
+  const gy0 = Math.floor((cam.y - vh / 2) / cellWorld) - 1;
+  const gy1 = Math.ceil((cam.y + vh / 2) / cellWorld) + 1;
+  for (let gx = gx0; gx <= gx1; gx++) {
+    for (let gy = gy0; gy <= gy1; gy++) {
+      if (speckHash(gx, gy, 0) > 0.4) continue; // ~40% of cells get a speck
+      const jx = speckHash(gx, gy, 1), jy = speckHash(gx, gy, 2), tone = speckHash(gx, gy, 3);
+      const wx = (gx + 0.15 + jx * 0.7) * cellWorld;
+      const wy = (gy + 0.15 + jy * 0.7) * cellWorld;
+      const p = w2s(wx, wy);
+      if (p.x < -4 || p.x > W + 4 || p.y < -4 || p.y > H + 4) continue;
+      let a = 0.16 + tone * 0.32;
+      if (tone > 0.9) a *= 0.5 + 0.5 * Math.sin(t * (0.3 + tone) + gx + gy); // a few gently twinkle
+      ctx.globalAlpha = a;
+      ctx.fillStyle = tone > 0.7 ? '#ffffff' : '#c8cdd8';
+      ctx.fillRect(p.x, p.y, 1.5, 1.5);
+    }
   }
-  return out;
-})();
+  ctx.globalAlpha = 1;
+}
 
 // Which bodies orbit once complete (dist/angle derived from placement).
 // Orbits are drawn as tilted ellipses (a 3/4 view of the orbital plane),
@@ -2510,17 +2533,7 @@ function frame(now) {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  // Faint background specks so the void is never pure black.
-  for (const spk of SPECKS) {
-    const p = w2s(spk.x, spk.y);
-    if (p.x < -4 || p.x > W + 4 || p.y < -4 || p.y > H + 4) continue;
-    let a = spk.a;
-    if (spk.tw) a *= 0.5 + 0.5 * Math.sin(t * spk.tw + spk.ph);
-    ctx.globalAlpha = a;
-    ctx.fillStyle = spk.c;
-    ctx.fillRect(p.x, p.y, 1.5, 1.5);
-  }
-  ctx.globalAlpha = 1;
+  drawSpecks(t, s);
 
   // Orbit paths: tilted ellipses through each begun planet.
   const target = targetBlocks();
