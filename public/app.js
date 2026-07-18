@@ -897,6 +897,7 @@ const state = {
   lastEventAt: 0,       // when Claude last did anything (for the status light)
   loaded: false,
   collapsed: new Set(),
+  focus: null, // { kind: 'home' } or { kind: 'loc', name } — re-applied on resize
   reduceMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
 };
 
@@ -1277,11 +1278,29 @@ function resize() {
   DPR = Math.min(window.devicePixelRatio || 1, 2);
   W = window.innerWidth;
   H = window.innerHeight;
+  // Backing-store resolution is DPR-scaled for crisp Retina rendering, but
+  // the canvas must be told to DISPLAY at the logical CSS size — otherwise
+  // on any DPR>1 screen it renders at its raw pixel dimensions (literally
+  // twice too big at DPR=2), which looks exactly like broken, off-centre
+  // framing no matter how correct the camera math is.
   canvas.width = W * DPR;
   canvas.height = H * DPR;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
-window.addEventListener('resize', resize);
+
+// Re-frame whatever's currently focused whenever the window changes shape —
+// moving the browser to a smaller display, resizing it, or rotating a
+// tablet all change how much room is actually available, so a zoom picked
+// for one window size can otherwise leave things cut off or crammed into
+// a corner on another.
+let resizeDebounce = null;
+window.addEventListener('resize', () => {
+  resize();
+  clearTimeout(resizeDebounce);
+  resizeDebounce = setTimeout(reapplyFocus, 180);
+});
 
 function w2s(x, y) {
   const s = BASE * cam.z;
@@ -1329,10 +1348,47 @@ function flyTo(x, y, z) {
   clampCam();
 }
 
-// Centre a point in the dead middle of the screen — no clever sidebar-offset
-// math, just the literal centre, so it's always predictable.
-function flyToCentered(x, y, z) {
-  flyTo(x, y, z);
+// --- Viewport-aware framing --------------------------------------------
+//
+// Fixed pixel guesses (assume a 1440-wide desktop, assume the info panel
+// takes 300px) look fine on a big monitor and break on a smaller laptop
+// window, where the sidebar and info panel eat a much bigger share of the
+// space. Everything below measures the ACTUAL current window and panel
+// visibility instead, so framing adapts to whatever size the browser
+// happens to be — including after it's resized or moved to another
+// display, via reapplyFocus() below.
+
+const SIDEBAR_W = 230;
+const INFO_PANEL_W = 320; // panel width + its right-edge margin
+
+// The screen-space rectangle actually free for content: excludes the
+// atlas sidebar (if open) and, when the caller says the info panel is
+// about to be shown, its width too.
+function visibleRect(reserveInfoPanel) {
+  const left = $('sidebar').classList.contains('hidden') ? 0 : SIDEBAR_W;
+  const right = W - (reserveInfoPanel ? INFO_PANEL_W : 0);
+  return { left, right, top: 80, bottom: H - 170, w: Math.max(160, right - left), h: Math.max(160, H - 250) };
+}
+
+// Centre a world point in the middle of whatever's actually visible right
+// now — not the literal window centre, which on a narrow window can sit
+// partly behind the sidebar or an open info panel.
+function flyToCentered(x, y, z, reserveInfoPanel) {
+  const r = visibleRect(reserveInfoPanel);
+  const cxPx = (r.left + r.right) / 2, cyPx = (r.top + r.bottom) / 2;
+  const s = BASE * z;
+  flyTo(x - (cxPx - W / 2) / s, y - (cyPx - H / 2) / s, z);
+}
+
+// A sensible close-up zoom for a single body: fill about half of whichever
+// dimension (width or height) is more constrained, so a tall-narrow window
+// doesn't get the same zoom as a wide one and end up overshooting.
+function closeUpZoom(st, reserveInfoPanel) {
+  if (st.zoom) return st.zoom;
+  if (st.kind === 'ring' || st.kind === 'field') return 0.5;
+  const r = visibleRect(reserveInfoPanel);
+  const fill = Math.min(r.w, r.h) * 0.5;
+  return Math.min(9, Math.max(2.2, fill / (st.R * 2 * BASE)));
 }
 
 // Home: frame everything that has been built so far, with generous margin.
@@ -1341,6 +1397,7 @@ function flyToCentered(x, y, z) {
 // each body proportionally, add an overall margin, and floor the zoom
 // so a couple of small objects don't get zoomed in on tightly either.
 function fitCompleted() {
+  state.focus = { kind: 'home' };
   const target = targetBlocks();
   let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
   let any = false;
@@ -1357,16 +1414,28 @@ function fitCompleted() {
     minx = Math.min(minx, pos.x - st.R - pad); maxx = Math.max(maxx, pos.x + st.R + pad);
     miny = Math.min(miny, pos.y - st.R - pad); maxy = Math.max(maxy, pos.y + st.R + pad);
   }
-  if (!any || !isFinite(minx)) return flyToCentered(HOME.x, HOME.y, HOME.z);
+  if (!any || !isFinite(minx)) return flyToCentered(HOME.x, HOME.y, HOME.z, false);
 
   const cx = (minx + maxx) / 2, cy = (miny + maxy) / 2;
   const MARGIN = 1.7;  // extra breathing room so nothing sits flush at an edge
   const MIN_SPAN = 240; // never zoom in tight even for just one or two small bodies
   const spanW = Math.max((maxx - minx) * MARGIN, MIN_SPAN);
   const spanH = Math.max((maxy - miny) * MARGIN, MIN_SPAN * 0.6);
-  const z = Math.min(1.6, Math.max(0.18,
-    Math.min((W - 260) / (spanW * BASE), (H - 200) / (spanH * BASE))));
-  flyToCentered(cx, cy, z);
+  const r = visibleRect(false);
+  const z = Math.min(1.6, Math.max(0.18, Math.min(r.w / (spanW * BASE), r.h / (spanH * BASE))));
+  flyToCentered(cx, cy, z, false);
+}
+
+// Re-run whatever the camera was last focused on, at the current window
+// size. Called after a resize settles.
+function reapplyFocus() {
+  if (!state.focus) return;
+  if (state.focus.kind === 'home') { fitCompleted(); return; }
+  const st = byName.get(state.focus.name);
+  if (!st) return;
+  const z = closeUpZoom(st, state.infoPinned);
+  const pos = posOf(st);
+  flyToCentered(pos.x, pos.y, z, state.infoPinned);
 }
 
 $('zoomIn').onclick = () => zoomAt(W / 2, H / 2, 1.45);
@@ -1427,9 +1496,15 @@ function connect() {
         if (goto) {
           const st = UNI.structures.find((x) => x.name.toLowerCase().includes(goto.toLowerCase()));
           if (st) {
-            flyToCentered(st.cx, st.cy, parseFloat(params.get('z')) || 5);
+            state.focus = { kind: 'loc', name: st.name };
+            flyToCentered(st.cx, st.cy, parseFloat(params.get('z')) || closeUpZoom(st, false), false);
             Object.assign(cam, camTarget);
           }
+        } else {
+          // Start already framed to whatever's unlocked, sized to this
+          // window — instead of a fixed zoom that might not fit.
+          fitCompleted();
+          Object.assign(cam, camTarget);
         }
       }
     } else if (msg.type === 'update') {
@@ -1487,9 +1562,10 @@ function renderLocations() {
         state.infoPinned = true;
         showInfo(s);
         if (locationState(s) !== 'locked') {
-          const z = s.kind === 'ring' ? 0.5 : (s.zoom || Math.min(9, Math.max(2.5, (H * 0.35) / (s.R * 2 * BASE))));
+          state.focus = { kind: 'loc', name: s.name };
+          const z = closeUpZoom(s, true);
           const pos = posOf(s);
-          flyToCentered(pos.x, pos.y, z);
+          flyToCentered(pos.x, pos.y, z, true);
         }
       };
       list.appendChild(li);
@@ -1531,8 +1607,10 @@ function showInfo(s) {
 }
 
 function hideInfo() {
+  const was = state.infoPinned;
   state.infoPinned = false;
   $('infoPanel').classList.remove('show');
+  if (was) reapplyFocus(); // reclaim the screen space the panel was using
 }
 
 $('infoClose').onclick = hideInfo;
@@ -2070,7 +2148,10 @@ function updateHUD() {
 // Controls + boot
 // ---------------------------------------------------------------------------
 
-$('sidebarToggle').onclick = () => $('sidebar').classList.toggle('hidden');
+$('sidebarToggle').onclick = () => {
+  $('sidebar').classList.toggle('hidden');
+  reapplyFocus(); // the atlas taking/freeing space changes what "centred" means
+};
 
 // --- Pace switching: rebuild the world at the new scale (lossless) ---------
 
@@ -2122,10 +2203,10 @@ function flyToActive() {
   const info = blockAt(target);
   if (!info) return;
   const st = info.s;
-  const z = st.kind === 'ring' || st.kind === 'field' ? 0.5
-    : (st.zoom || Math.min(9, Math.max(2.5, (H * 0.35) / (st.R * 2 * BASE))));
+  state.focus = { kind: 'loc', name: st.name };
+  const z = closeUpZoom(st, true);
   const pos = posOf(st);
-  flyToCentered(pos.x, pos.y, z);
+  flyToCentered(pos.x, pos.y, z, true);
   state.infoPinned = true;
   showInfo(st);
 }
