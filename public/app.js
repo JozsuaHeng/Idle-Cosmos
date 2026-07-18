@@ -1,5 +1,5 @@
 /**
- * Everything, Eventually — a cosmos built slowly, one token at a time.
+ * Idle Cosmos — a cosmos built slowly, one token at a time.
  *
  * ONE universe, fed by the combined token usage of EVERY Claude Code
  * session, reconstructing our real cosmic neighbourhood in build order:
@@ -2192,7 +2192,7 @@ updatePaceButtons();
 
 $('snapBtn').onclick = () => {
   const a = document.createElement('a');
-  a.download = 'everything-eventually.png';
+  a.download = "idle-cosmos.png";
   a.href = canvas.toDataURL('image/png');
   a.click();
   toast('📸 Universe saved as an image');

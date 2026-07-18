@@ -1,4 +1,4 @@
-# 🌌 Everything, Eventually
+# 🌌 Idle Cosmos
 
 A cosmos built slowly, one token at a time.
 
