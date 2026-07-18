@@ -20,6 +20,13 @@ const os = require('os');
 const PORT = 4816;
 const CLAUDE_PROJECTS = path.join(os.homedir(), '.claude', 'projects');
 const PUBLIC_DIR = path.join(__dirname, 'public');
+// Machine-local, gitignored: records how much energy already existed the
+// very first time this server ever ran here. A universe only counts energy
+// EARNED AFTER that point, so cloning this repo onto a new machine with a
+// long Claude Code history doesn't instantly unlock the whole thing —
+// everyone's universe starts from zero and grows from when they actually
+// installed it, regardless of how much history they already had.
+const BASELINE_FILE = path.join(__dirname, 'baseline.json');
 
 // How raw token counts convert into "cosmic energy" (the number that
 // builds the universe). Output tokens are Claude's actual work, so they
@@ -221,6 +228,36 @@ async function scanAll() {
   }
 }
 
+function totalEnergyNow() {
+  let e = 0;
+  for (const s of sessions.values()) e += s.energy;
+  return e;
+}
+
+let BASELINE_ENERGY = 0;
+
+// Call once, after the first full scanAll() so `sessions` reflects everything
+// that exists on disk. If baseline.json is missing, this is the first time
+// the server has ever run on this machine — freeze the current total as the
+// starting line and persist it. If it's present, just read the stored value
+// (this machine already has a starting line; don't move it).
+async function ensureBaseline() {
+  try {
+    const raw = await fsp.readFile(BASELINE_FILE, 'utf8');
+    BASELINE_ENERGY = JSON.parse(raw).baselineEnergy || 0;
+  } catch {
+    BASELINE_ENERGY = totalEnergyNow();
+    try {
+      await fsp.writeFile(
+        BASELINE_FILE,
+        JSON.stringify({ baselineEnergy: BASELINE_ENERGY, installedAt: new Date().toISOString() }, null, 2)
+      );
+    } catch (err) {
+      console.error('Could not write baseline.json (universe will still work, just without a fixed starting line):', err.message);
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Change detection: fs.watch (recursive, supported on macOS) + slow rescan
 // ---------------------------------------------------------------------------
@@ -317,9 +354,11 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === '/api/config') {
-    // Single source of truth for the token->energy weights, so the page
-    // never has to keep its own copy in sync with this file by hand.
-    return sendJSON(res, { weights: WEIGHTS });
+    // Single source of truth for the token->energy weights (so the page
+    // never has to keep its own copy in sync by hand) and this install's
+    // baseline energy (so a universe only counts what's been earned since
+    // this machine first ran the server, not someone's entire history).
+    return sendJSON(res, { weights: WEIGHTS, baselineEnergy: BASELINE_ENERGY });
   }
 
   if (url.pathname === '/api/version') {
@@ -385,11 +424,13 @@ server.on('error', (err) => {
 });
 
 scanAll()
+  .then(ensureBaseline)
   .then(() => {
     startWatching();
     server.listen(PORT, '127.0.0.1', () => {
       console.log(`Token Universe running at http://localhost:${PORT}`);
       console.log(`Watching ${CLAUDE_PROJECTS}`);
+      console.log(`Baseline energy (already-existing usage that won't count): ${BASELINE_ENERGY.toLocaleString()}`);
     });
   })
   .catch((err) => {

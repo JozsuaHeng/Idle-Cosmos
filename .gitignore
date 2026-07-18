@@ -4,3 +4,4 @@ node_modules/
 .env.local
 server.log
 .claude/settings.local.json
+baseline.json

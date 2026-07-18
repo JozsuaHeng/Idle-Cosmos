@@ -69,6 +69,13 @@ const FIELD_CAP = 12_000;
 // out of sync with what the server actually computes.
 let FORMULA_WEIGHTS = { input: 1, output: 3, cacheCreate: 1, cacheRead: 0.08 };
 
+// How much energy already existed in this machine's Claude Code logs the
+// very first time this server ever ran — set by /api/config at boot. Stays
+// null (meaning "not loaded yet, don't build anything") until then; see
+// targetBlocks(). This is what makes a fresh install start at zero instead
+// of instantly unlocking a universe's worth of pre-existing history.
+let baselineEnergy = null;
+
 // ---------------------------------------------------------------------------
 // Pixel-art builders
 // ---------------------------------------------------------------------------
@@ -1246,9 +1253,16 @@ function currentSession() {
 }
 
 function targetBlocks() {
-  // Progress is measured from where THIS cycle began, not lifetime energy —
-  // otherwise a fresh cycle after a reset would instantly complete again.
-  const cycleEnergy = Math.max(0, totalEnergy() - cycleStartEnergy);
+  // Wait for /api/config before building anything — otherwise a brief
+  // baselineEnergy-not-loaded-yet window would show a flash of extra,
+  // unearned progress that then jumps back down once it arrives.
+  if (baselineEnergy === null) return 0;
+  // Progress is measured from where THIS cycle began (cycleStartEnergy) and
+  // from this install's starting line (baselineEnergy) — not raw lifetime
+  // energy. Otherwise a fresh cycle after a reset would instantly complete
+  // again, and a fresh install on a machine with a long Claude Code history
+  // would instantly unlock the whole universe instead of starting at zero.
+  const cycleEnergy = Math.max(0, totalEnergy() - baselineEnergy - cycleStartEnergy);
   return Math.min(UNI.total, Math.floor(cycleEnergy / ENERGY_PER_BLOCK));
 }
 
@@ -2958,7 +2972,12 @@ setInterval(() => { if ($('formulaPanel').classList.contains('show')) renderForm
 
 fetch('/api/config').then((r) => r.json()).then((cfg) => {
   if (cfg.weights) FORMULA_WEIGHTS = cfg.weights;
-}).catch(() => {}); // keep the fallback constant if the server is unreachable
+  baselineEnergy = cfg.baselineEnergy || 0;
+}).catch(() => {
+  // Server unreachable — fall back to 0 rather than staying null forever,
+  // so the page doesn't get stuck refusing to build anything.
+  baselineEnergy = 0;
+});
 
 // --- Auto-reload when the app's own files change on disk, so an already- ---
 // --- open tab never keeps running stale code after an edit.             ---

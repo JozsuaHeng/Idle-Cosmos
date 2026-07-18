@@ -29,6 +29,15 @@ universe can "cool" and a new cycle begins from a new seed (`beginNewCycle`)
 - `hooks/open-universe.sh` — a Claude Code `UserPromptSubmit` hook that
   starts the server if needed and opens the page only if no tab is already
   connected. Installed in `~/.claude/settings.json` (user-level).
+- `baseline.json` — **machine-local, gitignored, never commit it.** Written
+  once, the very first time `server.js` ever runs on a given machine: it
+  freezes whatever token energy already existed in that machine's Claude
+  Code logs as `baselineEnergy`. `targetBlocks()` only counts energy earned
+  *after* that point (see `ensureBaseline()` in server.js and `baselineEnergy`
+  in app.js). Without this, cloning the repo onto a machine with a long
+  Claude Code history would instantly unlock most of the universe instead of
+  starting at zero. If you ever need to reset a dev machine to "fresh
+  install" behaviour, delete `baseline.json` and restart the server.
 
 ## Notable systems
 

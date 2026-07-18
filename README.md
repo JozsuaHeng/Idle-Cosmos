@@ -50,6 +50,16 @@ Claude Code keeps a log of every session on your Mac at
 **reads those local files** — no API key, no login, no data leaving your
 computer.
 
+## Every install starts from zero
+
+If you already have months of Claude Code history before you ever run this,
+your universe does **not** unlock instantly. The very first time you start
+the server, it quietly notes down how much energy already existed in your
+logs and treats that as the starting line — only tokens you spend *after*
+that count toward building anything. So whether you're brand new to Claude
+Code or have a huge history already, everyone's universe begins the same
+way: empty, and growing from here.
+
 ## The numbers
 
 - Energy = input tokens ×1 + output ×3 + cache-writes ×1 + cache-reads ×0.08
