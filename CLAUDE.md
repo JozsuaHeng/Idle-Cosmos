@@ -45,10 +45,20 @@ universe can "cool" and a new cycle begins from a new seed (`beginNewCycle`)
   switching is lossless since everything derives from real token totals.
 - **Achievement book** (`PHENOMENA`, `witnessPhenomenon`): rare ambient sky
   events (supernova, black hole, quasar, GRB, kilonova, rogue planet,
-  meteoroid collision, the "twin streak" rarity, and cycle completion) are
+  meteoroid collision, nova, pulsar flash, tidal disruption, auroral storm,
+  comet outburst, the "twin streak" rarity, and cycle completion) are
   silently recorded to `localStorage` on first sighting. The book UI
   (📖 button) never lists undiscovered entries — by design, don't add a
-  "here's everything you can find" list.
+  "here's everything you can find" list. Each recorded entry (except
+  `reborn`, which has no standalone visual) has a "watch again" button
+  (`replayPhenomenon`) that replays its exact animation on demand, for
+  events missed while the tab sat idle — it never re-adds an entry or
+  changes the recorded date, since `witnessPhenomenon` already dedupes by id.
+  `spawnBigPhenomenon` takes an optional `forceKind` and `spawnTwinStreak`
+  is its own function specifically so replay can call the same code path
+  as the real, random spawn. Rarity (`spawnAmbient`'s roll thresholds) is
+  deliberately low — these are meant to be rare enough that "watch again"
+  is genuinely useful, not just a novelty.
 - **Personalization**: an optional name composes into the title everywhere
   via `composedTitle()` — never hardcode "Idle Cosmos" elsewhere; call that
   function instead so cycle number / owner name stay in sync.

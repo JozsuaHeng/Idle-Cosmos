@@ -1336,9 +1336,15 @@ function restampRegion(x0, y0, x1, y1) {
 }
 
 function spritifyDone() {
-  const target = targetBlocks();
+  // Gate on state.placed, not targetBlocks(): a burst of energy can push the
+  // *target* past a structure's end well before its blocks have actually
+  // streamed in and been stamped onto the grid. Sprite-ifying on target alone
+  // would cut out (and start orbiting) a body some of whose blocks were never
+  // drawn — those still-pending blocks then land later at its old static
+  // position, orphaned from both the orbiting sprite and whatever's building
+  // next. Waiting for state.placed means every block was really placed first.
   for (const st of UNI.structures) {
-    if (!ORBIT.has(st.name) || st.sprited || target < st.start + st.count) continue;
+    if (!ORBIT.has(st.name) || st.sprited || state.placed < st.start + st.count) continue;
     let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
     for (const l of st.layers) {
       for (const b of l.blocks) {
@@ -1459,9 +1465,13 @@ const SHARD_COLORS = ['#e8eef8', '#ffffff', '#c8d4e8', '#9aa4b5', '#3a5a9e', '#5
 
 // The rarest tier: real, dramatic cosmic events. Each one is witnessed and
 // silently recorded in the achievement book the first time it happens.
-function spawnBigPhenomenon(now) {
-  const kind = ['meteoroid-collision', 'supernova', 'black-hole', 'quasar',
-    'gamma-ray-burst', 'kilonova', 'rogue-planet'][(Math.random() * 7) | 0];
+// `forceKind` lets the book's "watch again" replay the exact same visual
+// on demand instead of a random pick from the pool.
+const BIG_PHENOMENA = ['meteoroid-collision', 'supernova', 'black-hole', 'quasar',
+  'gamma-ray-burst', 'kilonova', 'rogue-planet', 'nova', 'pulsar-flash',
+  'tidal-disruption', 'auroral-storm', 'comet-flare'];
+function spawnBigPhenomenon(now, forceKind) {
+  const kind = forceKind || BIG_PHENOMENA[(Math.random() * BIG_PHENOMENA.length) | 0];
   const x = W * (0.2 + Math.random() * 0.6), y = H * (0.15 + Math.random() * 0.55);
 
   if (kind === 'rogue-planet') {
@@ -1473,10 +1483,30 @@ function spawnBigPhenomenon(now) {
     });
   } else if (kind === 'gamma-ray-burst') {
     state.ambient.push({ kind, x, y, vx: 0, vy: 0, life: 1, decay: 1 / 0.45, angle: Math.random() * Math.PI });
+  } else if (kind === 'auroral-storm') {
+    // A shimmering curtain low in the sky, not a point event — lingers far
+    // longer than anything else in the pool.
+    state.ambient.push({
+      kind, x: W * (0.1 + Math.random() * 0.5), y: H * (0.55 + Math.random() * 0.2),
+      vx: 0, vy: 0, life: 1, decay: 1 / 6.5, hue: 130 + Math.random() * 140,
+    });
+  } else if (kind === 'comet-flare') {
+    // A comet mid-transit suddenly brightens (a real, if rare, outburst) —
+    // moves like a meteor but flares hard partway across.
+    const fromLeft = Math.random() < 0.5;
+    state.ambient.push({
+      kind, x: fromLeft ? -10 : W + 10, y: H * (0.1 + Math.random() * 0.5),
+      vx: (fromLeft ? 1 : -1) * (1.1 + Math.random() * 0.6), vy: 0.15 + Math.random() * 0.2,
+      life: 1, decay: 1 / 5, trail: [],
+    });
   } else {
-    // supernova, black-hole, quasar, kilonova, meteoroid-collision all just
-    // happen in place and fade — duration varies by how "big" the event is.
-    const durations = { supernova: 2.6, 'black-hole': 3, quasar: 2.2, kilonova: 2.4, 'meteoroid-collision': 1.6 };
+    // supernova, black-hole, quasar, kilonova, meteoroid-collision, nova,
+    // pulsar-flash, tidal-disruption all just happen in place and fade —
+    // duration varies by how "big" the event is.
+    const durations = {
+      supernova: 2.6, 'black-hole': 3, quasar: 2.2, kilonova: 2.4, 'meteoroid-collision': 1.6,
+      nova: 1.8, 'pulsar-flash': 1.6, 'tidal-disruption': 2.8,
+    };
     state.ambient.push({
       kind, x, y, vx: 0, vy: 0, life: 1, decay: 1 / durations[kind],
       angle: Math.random() * Math.PI * 2,
@@ -1485,26 +1515,34 @@ function spawnBigPhenomenon(now) {
   witnessPhenomenon(kind);
 }
 
+// A rare, unforced flourish — not tied to any metric or milestone, just
+// occasional variety (a twin, oddly-coloured streak) so the sky never
+// feels like it's cycling through the same three things on a loop.
+// Split out so the achievement book's "watch again" can replay it exactly.
+function spawnTwinStreak() {
+  const fromTop = Math.random() < 0.7;
+  const color = Math.random() < 0.5 ? '198, 240, 200' : '216, 178, 240'; // emerald or violet, as rgb triples
+  const x = Math.random() * W, y = fromTop ? -10 : Math.random() * H * 0.4;
+  const vx = (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 5);
+  const vy = 4 + Math.random() * 4;
+  for (const dx of [0, 12]) {
+    state.ambient.push({ kind: 'rare', x: x + dx, y, vx, vy, color, life: 1, decay: 1 / 0.6 });
+  }
+  witnessPhenomenon('twin-streak');
+}
+
 function spawnAmbient(now) {
+  // Both tiers below were deliberately made rarer than the original tuning:
+  // idle time between visits is often long enough that a session catches
+  // few of these, and the book's "watch again" now covers the rest.
   const roll0 = Math.random();
-  if (roll0 < 0.0015) {
+  if (roll0 < 0.0006) {
     spawnBigPhenomenon(now);
     state.nextAmbientAt = now + 700 + Math.random() * 1800;
     return;
   }
-  if (roll0 < 0.006) {
-    // A rare, unforced flourish — not tied to any metric or milestone, just
-    // occasional variety (a twin, oddly-coloured streak) so the sky never
-    // feels like it's cycling through the same three things on a loop.
-    const fromTop = Math.random() < 0.7;
-    const color = Math.random() < 0.5 ? '198, 240, 200' : '216, 178, 240'; // emerald or violet, as rgb triples
-    const x = Math.random() * W, y = fromTop ? -10 : Math.random() * H * 0.4;
-    const vx = (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 5);
-    const vy = 4 + Math.random() * 4;
-    for (const dx of [0, 12]) {
-      state.ambient.push({ kind: 'rare', x: x + dx, y, vx, vy, color, life: 1, decay: 1 / 0.6 });
-    }
-    witnessPhenomenon('twin-streak');
+  if (roll0 < 0.0018) {
+    spawnTwinStreak();
     state.nextAmbientAt = now + 700 + Math.random() * 1800;
     return;
   }
@@ -1677,6 +1715,81 @@ function drawAmbient(now, dt) {
       ctx.beginPath();
       ctx.arc(a.x, a.y, 5, 0, Math.PI * 2);
       ctx.stroke();
+    } else if (a.kind === 'nova') {
+      // A white dwarf's surface briefly reignites — smaller and quicker
+      // than a supernova, no shockwave ring, just a flash that lingers.
+      const t2 = 1 - a.life;
+      const core = Math.max(0, 1 - t2 * 2.2);
+      ctx.globalAlpha = fade;
+      const s2 = 2 + core * 4;
+      ctx.fillStyle = '#fff2d8';
+      ctx.fillRect(a.x - s2 / 2, a.y - s2 / 2, s2, s2);
+      ctx.globalAlpha = fade * 0.35;
+      ctx.strokeStyle = '#e8c890';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, 3 + t2 * 10, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (a.kind === 'pulsar-flash') {
+      // A spinning neutron star's beam sweeping past — a fast strobe, not
+      // a single fade, plus the faint beam line itself.
+      const strobe = Math.max(0, Math.sin(now / 45));
+      ctx.globalAlpha = fade * (0.25 + 0.75 * strobe);
+      ctx.fillStyle = '#eaf4ff';
+      ctx.fillRect(a.x - 1.5, a.y - 1.5, 3, 3);
+      ctx.globalAlpha = fade * 0.28 * strobe;
+      ctx.strokeStyle = '#bcd8ff';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(a.x - Math.cos(a.angle) * 30, a.y - Math.sin(a.angle) * 30);
+      ctx.lineTo(a.x + Math.cos(a.angle) * 30, a.y + Math.sin(a.angle) * 30);
+      ctx.stroke();
+    } else if (a.kind === 'tidal-disruption') {
+      // A star strays too close to a black hole and is stretched into a
+      // glowing streak before it fades — an elongating, tilted ellipse.
+      const t2 = 1 - a.life;
+      const stretch = 3 + t2 * 26;
+      ctx.globalAlpha = fade * 0.8;
+      ctx.strokeStyle = '#ffd8b0';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.ellipse(a.x, a.y, stretch, Math.max(1, 4 - t2 * 3), a.angle, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = fade;
+      ctx.fillStyle = '#fff0dc';
+      ctx.fillRect(a.x - 1.5, a.y - 1.5, 3, 3);
+    } else if (a.kind === 'auroral-storm') {
+      // Shimmering vertical curtains, low in the sky — the only phenomenon
+      // that lingers as a mood rather than a single flash.
+      for (let k = 0; k < 5; k++) {
+        const bx = a.x + (k - 2) * 14 + Math.sin(now / 500 + k) * 6;
+        ctx.globalAlpha = fade * (0.1 + 0.08 * Math.sin(now / 400 + k * 1.3));
+        ctx.fillStyle = `hsl(${a.hue}, 70%, 60%)`;
+        ctx.fillRect(bx, a.y - 40, 4, 80);
+      }
+    } else if (a.kind === 'comet-flare') {
+      // A comet's ice suddenly flashes to vapour mid-transit — like a
+      // meteor, but with a coma that visibly brightens then fades.
+      a.trail.unshift({ x: a.x, y: a.y });
+      if (a.trail.length > 12) a.trail.pop();
+      for (let k = 0; k < a.trail.length; k++) {
+        ctx.globalAlpha = 0.5 * fade * (1 - k / a.trail.length);
+        ctx.fillStyle = '#dce8ff';
+        ctx.fillRect(a.trail[k].x, a.trail[k].y, 2, 2);
+      }
+      const flare = Math.sin(Math.PI * (1 - a.life));
+      ctx.globalAlpha = fade;
+      const s2 = 2 + flare * 6;
+      ctx.fillStyle = '#eaf2ff';
+      ctx.fillRect(a.x - s2 / 2, a.y - s2 / 2, s2, s2);
+      if (flare > 0.4) {
+        ctx.globalAlpha = fade * flare * 0.4;
+        ctx.strokeStyle = '#bcd8ff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, flare * 12, 0, Math.PI * 2);
+        ctx.stroke();
+      }
     } else {
       a.spin += dt / 900;
       ctx.globalAlpha = 0.55 * fade;
@@ -2815,7 +2928,7 @@ $('snapBtn').onclick = () => {
 // --- the point is discovering them, not checking them off a list.
 
 const PHENOMENA = {
-  'twin-streak': { name: 'A Double Omen', desc: 'Two shooting stars crossed the sky together, oddly coloured.' },
+  'twin-streak': { name: 'A Double Omen', desc: 'Two shooting stars crossed the sky together, oddly coloured.', replay: () => spawnTwinStreak() },
   'meteoroid-collision': { name: 'A Collision', desc: 'Two meteoroids struck each other in the dark, scattering debris.' },
   supernova: { name: 'A Star Died', desc: 'A distant star ended its life in a brilliant supernova.' },
   'black-hole': { name: 'A Black Hole', desc: 'Spacetime itself tore open for a moment, then closed again.' },
@@ -2823,6 +2936,11 @@ const PHENOMENA = {
   'gamma-ray-burst': { name: 'A Gamma-Ray Burst', desc: 'The most energetic explosion known lit the sky for an instant.' },
   kilonova: { name: 'A Kilonova', desc: 'Two neutron stars collided, forging gold and platinum in the flash.' },
   'rogue-planet': { name: 'A Rogue Planet', desc: 'A starless world drifted silently through the dark.' },
+  nova: { name: 'A Nova', desc: "A white dwarf's stolen hydrogen ignited in a sudden flash, then dimmed." },
+  'pulsar-flash': { name: "A Pulsar's Beam", desc: 'A spinning neutron star swept its beam past like a lighthouse.' },
+  'tidal-disruption': { name: 'A Star, Torn Apart', desc: 'A wandering star strayed too close to a black hole and was stretched into a glowing streak.' },
+  'auroral-storm': { name: 'An Auroral Storm', desc: 'Charged particles met a magnetic field, and the sky itself began to glow.' },
+  'comet-flare': { name: "A Comet's Outburst", desc: "A comet's ice flashed to vapour, and it burned brighter for a moment." },
   reborn: { name: 'Cooling', desc: 'A universe completed, and a new one began.' },
 };
 
@@ -2855,6 +2973,16 @@ function showPhenomenonBanner(name) {
   bannerTimer = setTimeout(() => el.classList.remove('show'), 4000);
 }
 
+// Plays the exact visual for something already in the book again, on
+// demand — for when it happened while the screen sat idle and unwatched.
+// Doesn't touch the recorded date or add a duplicate entry.
+function replayPhenomenon(id) {
+  if (!PHENOMENA[id]) return;
+  $('bookPanel').classList.remove('show');
+  if (id === 'twin-streak') spawnTwinStreak();
+  else if (BIG_PHENOMENA.includes(id)) spawnBigPhenomenon(performance.now(), id);
+}
+
 function renderBook() {
   $('bookIntro').textContent = witnessed.length
     ? 'A record of rare things you happened to see.'
@@ -2865,8 +2993,10 @@ function renderBook() {
     const p = PHENOMENA[w.id];
     if (!p) continue;
     const when = new Date(w.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    const replayable = w.id === 'twin-streak' || BIG_PHENOMENA.includes(w.id);
     const li = document.createElement('li');
-    li.innerHTML = `<span class="bname">${p.name}<span class="bwhen">${when}</span></span><div class="bdesc">${p.desc}</div>`;
+    li.innerHTML = `<span class="bname">${p.name}<span class="bwhen">${when}</span></span><div class="bdesc">${p.desc}</div>` +
+      (replayable ? `<button class="breplay" data-id="${w.id}">watch again</button>` : '');
     list.appendChild(li);
   }
 }
@@ -2876,6 +3006,10 @@ $('bookBtn').onclick = () => {
   $('bookPanel').classList.toggle('show');
 };
 $('bookClose').onclick = () => $('bookPanel').classList.remove('show');
+$('bookList').addEventListener('click', (e) => {
+  const btn = e.target.closest('.breplay');
+  if (btn) replayPhenomenon(btn.dataset.id);
+});
 
 // --- Cyclic reset: once everything unlockable is fully built, the universe
 // --- can "cool" and a new one begins — a real endgame instead of just
