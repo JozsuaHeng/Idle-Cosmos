@@ -1474,21 +1474,24 @@ function spawnBigPhenomenon(now, forceKind) {
   const kind = forceKind || BIG_PHENOMENA[(Math.random() * BIG_PHENOMENA.length) | 0];
   const x = W * (0.2 + Math.random() * 0.6), y = H * (0.15 + Math.random() * 0.55);
 
+  // Every book-recorded phenomenon runs 3x longer than a background streak
+  // or meteor would, and anything that moves drifts at half speed — rare
+  // things are meant to be noticed and lingered on, not blinked through.
   if (kind === 'rogue-planet') {
     const fromLeft = Math.random() < 0.5;
     state.ambient.push({
       kind, x: fromLeft ? -14 : W + 14, y,
-      vx: (fromLeft ? 1 : -1) * (0.35 + Math.random() * 0.25), vy: (Math.random() - 0.5) * 0.1,
-      life: 1, decay: 1 / 14, hue: 210 + Math.random() * 60,
+      vx: (fromLeft ? 1 : -1) * (0.175 + Math.random() * 0.125), vy: (Math.random() - 0.5) * 0.05,
+      life: 1, decay: 1 / 42, hue: 210 + Math.random() * 60,
     });
   } else if (kind === 'gamma-ray-burst') {
-    state.ambient.push({ kind, x, y, vx: 0, vy: 0, life: 1, decay: 1 / 0.45, angle: Math.random() * Math.PI });
+    state.ambient.push({ kind, x, y, vx: 0, vy: 0, life: 1, decay: 1 / 1.35, angle: Math.random() * Math.PI });
   } else if (kind === 'auroral-storm') {
     // A shimmering curtain low in the sky, not a point event — lingers far
     // longer than anything else in the pool.
     state.ambient.push({
       kind, x: W * (0.1 + Math.random() * 0.5), y: H * (0.55 + Math.random() * 0.2),
-      vx: 0, vy: 0, life: 1, decay: 1 / 6.5, hue: 130 + Math.random() * 140,
+      vx: 0, vy: 0, life: 1, decay: 1 / 19.5, hue: 130 + Math.random() * 140,
     });
   } else if (kind === 'comet-flare') {
     // A comet mid-transit suddenly brightens (a real, if rare, outburst) —
@@ -1496,16 +1499,16 @@ function spawnBigPhenomenon(now, forceKind) {
     const fromLeft = Math.random() < 0.5;
     state.ambient.push({
       kind, x: fromLeft ? -10 : W + 10, y: H * (0.1 + Math.random() * 0.5),
-      vx: (fromLeft ? 1 : -1) * (1.1 + Math.random() * 0.6), vy: 0.15 + Math.random() * 0.2,
-      life: 1, decay: 1 / 5, trail: [],
+      vx: (fromLeft ? 1 : -1) * (0.55 + Math.random() * 0.3), vy: 0.075 + Math.random() * 0.1,
+      life: 1, decay: 1 / 15, trail: [],
     });
   } else {
     // supernova, black-hole, quasar, kilonova, meteoroid-collision, nova,
     // pulsar-flash, tidal-disruption all just happen in place and fade —
     // duration varies by how "big" the event is.
     const durations = {
-      supernova: 2.6, 'black-hole': 3, quasar: 2.2, kilonova: 2.4, 'meteoroid-collision': 1.6,
-      nova: 1.8, 'pulsar-flash': 1.6, 'tidal-disruption': 2.8,
+      supernova: 7.8, 'black-hole': 9, quasar: 6.6, kilonova: 7.2, 'meteoroid-collision': 4.8,
+      nova: 5.4, 'pulsar-flash': 4.8, 'tidal-disruption': 8.4,
     };
     state.ambient.push({
       kind, x, y, vx: 0, vy: 0, life: 1, decay: 1 / durations[kind],
@@ -1523,10 +1526,10 @@ function spawnTwinStreak() {
   const fromTop = Math.random() < 0.7;
   const color = Math.random() < 0.5 ? '198, 240, 200' : '216, 178, 240'; // emerald or violet, as rgb triples
   const x = Math.random() * W, y = fromTop ? -10 : Math.random() * H * 0.4;
-  const vx = (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 5);
-  const vy = 4 + Math.random() * 4;
+  const vx = (Math.random() < 0.5 ? -1 : 1) * (3 + Math.random() * 2.5);
+  const vy = 2 + Math.random() * 2;
   for (const dx of [0, 12]) {
-    state.ambient.push({ kind: 'rare', x: x + dx, y, vx, vy, color, life: 1, decay: 1 / 0.6 });
+    state.ambient.push({ kind: 'rare', x: x + dx, y, vx, vy, color, life: 1, decay: 1 / 1.8 });
   }
   witnessPhenomenon('twin-streak');
 }
@@ -1596,14 +1599,18 @@ function drawAmbient(now, dt) {
     const fade = Math.min(1, a.life * 2.5);
     if (a.kind === 'shooting' || a.kind === 'rare') {
       const rgb = a.kind === 'rare' ? a.color : '232, 240, 252';
-      const grad = ctx.createLinearGradient(a.x, a.y, a.x - a.vx * 6, a.y - a.vy * 6);
+      // 'rare' (the book-recorded twin streak) gets a longer tail and a
+      // thicker line than an ordinary shooting star — its own multiplier
+      // rather than a.vx*6, since its velocity was halved to slow it down.
+      const tail = a.kind === 'rare' ? 15 : 6;
+      const grad = ctx.createLinearGradient(a.x, a.y, a.x - a.vx * tail, a.y - a.vy * tail);
       grad.addColorStop(0, `rgba(${rgb}, ${fade})`);
       grad.addColorStop(1, `rgba(${rgb}, 0)`);
       ctx.strokeStyle = grad;
-      ctx.lineWidth = a.kind === 'rare' ? 1.7 : 1.4;
+      ctx.lineWidth = a.kind === 'rare' ? 4 : 1.4;
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
-      ctx.lineTo(a.x - a.vx * 6, a.y - a.vy * 6);
+      ctx.lineTo(a.x - a.vx * tail, a.y - a.vy * tail);
       ctx.stroke();
     } else if (a.kind === 'meteor') {
       a.trail.unshift({ x: a.x, y: a.y });
@@ -1617,21 +1624,23 @@ function drawAmbient(now, dt) {
       ctx.fillStyle = '#e8eef8';
       ctx.fillRect(a.x - 1, a.y - 1, 2.5, 2.5);
     } else if (a.kind === 'meteoroid-collision') {
+      // Fragments now separate and scatter roughly 2.5x further, to read
+      // as a bigger impact given the slower, longer-playing sequence.
       if (a.life > 0.55) {
         const approach = (1 - a.life) / 0.45;
-        const d = (1 - approach) * 20 + 2;
+        const d = (1 - approach) * 50 + 4;
         ctx.globalAlpha = fade;
         ctx.fillStyle = '#9a8f80';
-        ctx.fillRect(a.x + Math.cos(a.angle) * d - 1.5, a.y + Math.sin(a.angle) * d - 1.5, 3, 3);
-        ctx.fillRect(a.x - Math.cos(a.angle) * d - 1.5, a.y - Math.sin(a.angle) * d - 1.5, 3, 3);
+        ctx.fillRect(a.x + Math.cos(a.angle) * d - 3.5, a.y + Math.sin(a.angle) * d - 3.5, 7, 7);
+        ctx.fillRect(a.x - Math.cos(a.angle) * d - 3.5, a.y - Math.sin(a.angle) * d - 3.5, 7, 7);
       } else {
         const burst = 1 - a.life / 0.55;
         ctx.globalAlpha = fade;
         for (let k = 0; k < 6; k++) {
           const bang = a.angle + k * 1.05;
-          const br = burst * 18;
+          const br = burst * 45;
           ctx.fillStyle = k % 2 ? '#e8c8a0' : '#c8a878';
-          ctx.fillRect(a.x + Math.cos(bang) * br - 1, a.y + Math.sin(bang) * br - 1, 2, 2);
+          ctx.fillRect(a.x + Math.cos(bang) * br - 2.5, a.y + Math.sin(bang) * br - 2.5, 5, 5);
         }
       }
     } else if (a.kind === 'supernova') {
@@ -1640,42 +1649,42 @@ function drawAmbient(now, dt) {
       if (core > 0) {
         ctx.globalAlpha = core;
         ctx.fillStyle = '#f2f6ff';
-        const s2 = 3 + core * 6;
+        const s2 = 7 + core * 14;
         ctx.fillRect(a.x - s2 / 2, a.y - s2 / 2, s2, s2);
       }
       ctx.globalAlpha = fade * 0.7;
       ctx.strokeStyle = '#a8c8ff';
-      ctx.lineWidth = 1.4;
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.arc(a.x, a.y, t2 * 44, 0, Math.PI * 2);
+      ctx.arc(a.x, a.y, t2 * 110, 0, Math.PI * 2);
       ctx.stroke();
     } else if (a.kind === 'black-hole') {
-      const pulse = 0.85 + 0.15 * Math.sin(now / 150);
-      const ring = ctx.createRadialGradient(a.x, a.y, 6, a.x, a.y, 20 * pulse);
+      const pulse = 0.85 + 0.15 * Math.sin(now / 260);
+      const ring = ctx.createRadialGradient(a.x, a.y, 15, a.x, a.y, 50 * pulse);
       ring.addColorStop(0, 'rgba(0, 0, 0, 1)');
       ring.addColorStop(0.55, `rgba(255, 170, 60, ${0.8 * fade})`);
       ring.addColorStop(1, 'rgba(255, 120, 40, 0)');
       ctx.globalAlpha = fade;
       ctx.fillStyle = ring;
       ctx.beginPath();
-      ctx.arc(a.x, a.y, 20 * pulse, 0, Math.PI * 2);
+      ctx.arc(a.x, a.y, 50 * pulse, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#000';
       ctx.beginPath();
-      ctx.arc(a.x, a.y, 7, 0, Math.PI * 2);
+      ctx.arc(a.x, a.y, 17, 0, Math.PI * 2);
       ctx.fill();
     } else if (a.kind === 'quasar') {
       ctx.globalAlpha = fade;
       ctx.fillStyle = '#eaf2ff';
-      ctx.fillRect(a.x - 2, a.y - 2, 4, 4);
+      ctx.fillRect(a.x - 4.5, a.y - 4.5, 9, 9);
       ctx.strokeStyle = `rgba(180, 210, 255, ${0.6 * fade})`;
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.moveTo(a.x - Math.cos(a.angle) * 26, a.y - Math.sin(a.angle) * 26);
-      ctx.lineTo(a.x + Math.cos(a.angle) * 26, a.y + Math.sin(a.angle) * 26);
+      ctx.moveTo(a.x - Math.cos(a.angle) * 65, a.y - Math.sin(a.angle) * 65);
+      ctx.lineTo(a.x + Math.cos(a.angle) * 65, a.y + Math.sin(a.angle) * 65);
       ctx.stroke();
     } else if (a.kind === 'gamma-ray-burst') {
-      const len = 220;
+      const len = 500;
       const bx0 = a.x - Math.cos(a.angle) * len, by0 = a.y - Math.sin(a.angle) * len;
       const bx1 = a.x + Math.cos(a.angle) * len, by1 = a.y + Math.sin(a.angle) * len;
       const grad = ctx.createLinearGradient(bx0, by0, bx1, by1);
@@ -1683,7 +1692,7 @@ function drawAmbient(now, dt) {
       grad.addColorStop(0.5, `rgba(230, 245, 255, ${fade})`);
       grad.addColorStop(1, 'rgba(200, 230, 255, 0)');
       ctx.strokeStyle = grad;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 6;
       ctx.beginPath();
       ctx.moveTo(bx0, by0);
       ctx.lineTo(bx1, by1);
@@ -1692,28 +1701,28 @@ function drawAmbient(now, dt) {
       const t2 = 1 - a.life;
       const early = t2 < 0.35;
       ctx.globalAlpha = fade;
-      const s2 = early ? 3 + t2 * 14 : 5;
+      const s2 = early ? 7 + t2 * 34 : 11;
       ctx.fillStyle = early ? '#dce6ff' : '#e8965a';
       ctx.fillRect(a.x - s2 / 2, a.y - s2 / 2, s2, s2);
       if (!early) {
         ctx.globalAlpha = fade * 0.4;
         ctx.strokeStyle = '#e8965a';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(a.x, a.y, (t2 - 0.35) * 32, 0, Math.PI * 2);
+        ctx.arc(a.x, a.y, (t2 - 0.35) * 78, 0, Math.PI * 2);
         ctx.stroke();
       }
     } else if (a.kind === 'rogue-planet') {
       ctx.globalAlpha = fade * 0.55;
       ctx.fillStyle = `hsl(${a.hue}, 20%, 22%)`;
       ctx.beginPath();
-      ctx.arc(a.x, a.y, 5, 0, Math.PI * 2);
+      ctx.arc(a.x, a.y, 11, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = fade * 0.3;
       ctx.strokeStyle = `hsl(${a.hue}, 30%, 40%)`;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.arc(a.x, a.y, 5, 0, Math.PI * 2);
+      ctx.arc(a.x, a.y, 11, 0, Math.PI * 2);
       ctx.stroke();
     } else if (a.kind === 'nova') {
       // A white dwarf's surface briefly reignites — smaller and quicker
@@ -1721,73 +1730,74 @@ function drawAmbient(now, dt) {
       const t2 = 1 - a.life;
       const core = Math.max(0, 1 - t2 * 2.2);
       ctx.globalAlpha = fade;
-      const s2 = 2 + core * 4;
+      const s2 = 5 + core * 10;
       ctx.fillStyle = '#fff2d8';
       ctx.fillRect(a.x - s2 / 2, a.y - s2 / 2, s2, s2);
       ctx.globalAlpha = fade * 0.35;
       ctx.strokeStyle = '#e8c890';
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(a.x, a.y, 3 + t2 * 10, 0, Math.PI * 2);
+      ctx.arc(a.x, a.y, 7 + t2 * 25, 0, Math.PI * 2);
       ctx.stroke();
     } else if (a.kind === 'pulsar-flash') {
       // A spinning neutron star's beam sweeping past — a fast strobe, not
       // a single fade, plus the faint beam line itself.
-      const strobe = Math.max(0, Math.sin(now / 45));
+      const strobe = Math.max(0, Math.sin(now / 70));
       ctx.globalAlpha = fade * (0.25 + 0.75 * strobe);
       ctx.fillStyle = '#eaf4ff';
-      ctx.fillRect(a.x - 1.5, a.y - 1.5, 3, 3);
+      ctx.fillRect(a.x - 3.5, a.y - 3.5, 7, 7);
       ctx.globalAlpha = fade * 0.28 * strobe;
       ctx.strokeStyle = '#bcd8ff';
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(a.x - Math.cos(a.angle) * 30, a.y - Math.sin(a.angle) * 30);
-      ctx.lineTo(a.x + Math.cos(a.angle) * 30, a.y + Math.sin(a.angle) * 30);
+      ctx.moveTo(a.x - Math.cos(a.angle) * 70, a.y - Math.sin(a.angle) * 70);
+      ctx.lineTo(a.x + Math.cos(a.angle) * 70, a.y + Math.sin(a.angle) * 70);
       ctx.stroke();
     } else if (a.kind === 'tidal-disruption') {
       // A star strays too close to a black hole and is stretched into a
       // glowing streak before it fades — an elongating, tilted ellipse.
       const t2 = 1 - a.life;
-      const stretch = 3 + t2 * 26;
+      const stretch = 7 + t2 * 65;
       ctx.globalAlpha = fade * 0.8;
       ctx.strokeStyle = '#ffd8b0';
-      ctx.lineWidth = 1.6;
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.ellipse(a.x, a.y, stretch, Math.max(1, 4 - t2 * 3), a.angle, 0, Math.PI * 2);
+      ctx.ellipse(a.x, a.y, stretch, Math.max(2, 9 - t2 * 7), a.angle, 0, Math.PI * 2);
       ctx.stroke();
       ctx.globalAlpha = fade;
       ctx.fillStyle = '#fff0dc';
-      ctx.fillRect(a.x - 1.5, a.y - 1.5, 3, 3);
+      ctx.fillRect(a.x - 3.5, a.y - 3.5, 7, 7);
     } else if (a.kind === 'auroral-storm') {
       // Shimmering vertical curtains, low in the sky — the only phenomenon
-      // that lingers as a mood rather than a single flash.
+      // that lingers as a mood rather than a single flash. Wider, taller
+      // bands and a slower shimmer to match its now much longer run.
       for (let k = 0; k < 5; k++) {
-        const bx = a.x + (k - 2) * 14 + Math.sin(now / 500 + k) * 6;
-        ctx.globalAlpha = fade * (0.1 + 0.08 * Math.sin(now / 400 + k * 1.3));
+        const bx = a.x + (k - 2) * 32 + Math.sin(now / 700 + k) * 14;
+        ctx.globalAlpha = fade * (0.1 + 0.08 * Math.sin(now / 550 + k * 1.3));
         ctx.fillStyle = `hsl(${a.hue}, 70%, 60%)`;
-        ctx.fillRect(bx, a.y - 40, 4, 80);
+        ctx.fillRect(bx, a.y - 95, 9, 190);
       }
     } else if (a.kind === 'comet-flare') {
       // A comet's ice suddenly flashes to vapour mid-transit — like a
       // meteor, but with a coma that visibly brightens then fades.
       a.trail.unshift({ x: a.x, y: a.y });
-      if (a.trail.length > 12) a.trail.pop();
+      if (a.trail.length > 16) a.trail.pop();
       for (let k = 0; k < a.trail.length; k++) {
         ctx.globalAlpha = 0.5 * fade * (1 - k / a.trail.length);
         ctx.fillStyle = '#dce8ff';
-        ctx.fillRect(a.trail[k].x, a.trail[k].y, 2, 2);
+        ctx.fillRect(a.trail[k].x, a.trail[k].y, 4, 4);
       }
       const flare = Math.sin(Math.PI * (1 - a.life));
       ctx.globalAlpha = fade;
-      const s2 = 2 + flare * 6;
+      const s2 = 5 + flare * 16;
       ctx.fillStyle = '#eaf2ff';
       ctx.fillRect(a.x - s2 / 2, a.y - s2 / 2, s2, s2);
       if (flare > 0.4) {
         ctx.globalAlpha = fade * flare * 0.4;
         ctx.strokeStyle = '#bcd8ff';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(a.x, a.y, flare * 12, 0, Math.PI * 2);
+        ctx.arc(a.x, a.y, flare * 30, 0, Math.PI * 2);
         ctx.stroke();
       }
     } else {
