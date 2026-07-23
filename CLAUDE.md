@@ -85,7 +85,11 @@ universe can "cool" and a new cycle begins from a new seed (`beginNewCycle`)
   and fast, by design). Deliberately named with original, non-trademarked
   phenomenon names (e.g. `gargantua-tribute` → "A Warped Horizon") — the
   description text winks at the reference, the id/name never claims it
-  outright. If adding more, keep that pattern.
+  outright. Each `PHENOMENA` entry does carry an explicit `movie` field
+  (film + year where unambiguous; `iss-tribute` says outright it isn't a
+  film), rendered by `renderBookList` as a `.bmovie` line so people can
+  actually tell what a sighting is referencing. If adding more, keep both
+  patterns — winking name/description, explicit `movie` field.
 - **Personalization**: an optional name composes into the title everywhere
   via `composedTitle()` — never hardcode "Idle Cosmos" elsewhere; call that
   function instead so cycle number / owner name stay in sync.

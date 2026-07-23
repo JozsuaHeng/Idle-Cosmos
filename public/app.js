@@ -3603,26 +3603,26 @@ const PHENOMENA = {
   // A dozen small, hand-drawn nods to famous space films — the rarest
   // sightings in the whole book. Each name deliberately avoids trademarked
   // titles or ship names; if you recognise it, that's the point.
-  'gargantua-tribute': { name: 'A Warped Horizon', desc: 'A colossal black hole bent its own accretion disk impossibly around itself — and for a moment, something small and metallic drifted past its light.' },
-  'iss-tribute': { name: 'A Modular Outpost', desc: "A cluster of modules and solar wings caught the light, exactly where a certain outpost has quietly orbited since 1998." },
-  'ad-astra-tribute': { name: 'The Loneliest Signal', desc: 'A lone figure drifted near an antenna array vast enough to hear the edge of the solar system, waiting on a reply that takes a long time to come.' },
-  'hail-mary-tribute': { name: 'An Unlikely Handshake', desc: 'Two ships from very different worlds sat side by side and, improbably, began to talk.' },
-  'gravity-tribute': { name: 'Silence, Then Debris', desc: "A cloud of high-speed debris tumbled past — and for one heart-stopping moment, so did someone who'd lost their tether." },
-  'monolith-tribute': { name: 'A Perfect Black Rectangle', desc: 'A featureless slab hung in the dark, its proportions suspiciously exact. It did not respond to hailing.' },
-  'mothership-tribute': { name: 'A Shadow Larger Than the Moon', desc: "Something enormous slid across the starfield, blotting out a city's worth of stars, and then was gone." },
-  'dune-tribute': { name: 'Two Moons Over Dunes', desc: 'A pale desert world turned slowly under two moons, and something vast moved beneath its sand.' },
-  'wall-e-tribute': { name: 'A Small Robot, A Small Plant', desc: 'A boxy little robot drifted by, clutching something green and growing — tending it against every odd.' },
-  'moon-tribute': { name: 'Two of the Same Face', desc: 'A lonely lunar base blinked its lights, and just for a moment, there seemed to be two of the same person walking outside.' },
-  'star-wars-tribute': { name: 'A Familiar Silhouette', desc: 'A saucer-shaped freighter hung still a moment too long, then blurred into a streak of light and was gone.' },
-  'alien-tribute': { name: 'A Derelict, and Something Waiting', desc: 'A horseshoe-shaped wreck drifted, cold and silent — and deep inside, something in a leathery egg was not quite dead.' },
-  'star-wars-destroyer-tribute': { name: 'A Wedge Against the Stars', desc: 'A wedge-shaped capital ship slid past, seemingly endless, engines glowing along its full length.' },
-  'star-wars-xwing-tribute': { name: 'Four Wings, Locked Open', desc: 'A small fighter streaked by, its wings split into an X, cannon-tips glowing.' },
-  'star-wars-tie-tribute': { name: 'A Screaming Pair', desc: 'Two fighters with hexagonal wing panels shrieked past in formation, gone as fast as they came.' },
-  'star-wars-deathstar-tribute': { name: 'A Moon That Should Not Be', desc: 'A sphere far too round, far too artificial, hung in the dark — one great dish set into its surface like a hollow eye.' },
-  'star-trek-tribute': { name: 'Where No One Has Gone Before', desc: 'A saucer, twin nacelles trailing blue light, cruised past on a five-year heading toward nowhere in particular.' },
-  'the-martian-tribute': { name: 'A Garden in the Rust', desc: 'A lone rover crossed a rust-red plain, and something impossibly green was growing in its shadow.' },
-  'arrival-tribute': { name: 'A Shell, Standing on End', desc: 'A vast dark shell hovered in perfect silence, mist pooling beneath it, offering no answers yet.' },
-  'close-encounters-tribute': { name: 'Five Notes, Answered', desc: 'A craft strung with lights descended, blinking out a simple five-note phrase, and waited politely for a reply.' },
+  'gargantua-tribute': { name: 'A Warped Horizon', movie: 'Interstellar (2014)', desc: 'A colossal black hole bent its own accretion disk impossibly around itself — and for a moment, something small and metallic drifted past its light.' },
+  'iss-tribute': { name: 'A Modular Outpost', movie: 'Not a film — the real International Space Station', desc: "A cluster of modules and solar wings caught the light, exactly where a certain outpost has quietly orbited since 1998." },
+  'ad-astra-tribute': { name: 'The Loneliest Signal', movie: 'Ad Astra (2019)', desc: 'A lone figure drifted near an antenna array vast enough to hear the edge of the solar system, waiting on a reply that takes a long time to come.' },
+  'hail-mary-tribute': { name: 'An Unlikely Handshake', movie: 'Project Hail Mary', desc: 'Two ships from very different worlds sat side by side and, improbably, began to talk.' },
+  'gravity-tribute': { name: 'Silence, Then Debris', movie: 'Gravity (2013)', desc: "A cloud of high-speed debris tumbled past — and for one heart-stopping moment, so did someone who'd lost their tether." },
+  'monolith-tribute': { name: 'A Perfect Black Rectangle', movie: '2001: A Space Odyssey (1968)', desc: 'A featureless slab hung in the dark, its proportions suspiciously exact. It did not respond to hailing.' },
+  'mothership-tribute': { name: 'A Shadow Larger Than the Moon', movie: 'Independence Day (1996)', desc: "Something enormous slid across the starfield, blotting out a city's worth of stars, and then was gone." },
+  'dune-tribute': { name: 'Two Moons Over Dunes', movie: 'Dune', desc: 'A pale desert world turned slowly under two moons, and something vast moved beneath its sand.' },
+  'wall-e-tribute': { name: 'A Small Robot, A Small Plant', movie: 'WALL-E (2008)', desc: 'A boxy little robot drifted by, clutching something green and growing — tending it against every odd.' },
+  'moon-tribute': { name: 'Two of the Same Face', movie: 'Moon (2009)', desc: 'A lonely lunar base blinked its lights, and just for a moment, there seemed to be two of the same person walking outside.' },
+  'star-wars-tribute': { name: 'A Familiar Silhouette', movie: 'Star Wars', desc: 'A saucer-shaped freighter hung still a moment too long, then blurred into a streak of light and was gone.' },
+  'alien-tribute': { name: 'A Derelict, and Something Waiting', movie: 'Alien (1979)', desc: 'A horseshoe-shaped wreck drifted, cold and silent — and deep inside, something in a leathery egg was not quite dead.' },
+  'star-wars-destroyer-tribute': { name: 'A Wedge Against the Stars', movie: 'Star Wars', desc: 'A wedge-shaped capital ship slid past, seemingly endless, engines glowing along its full length.' },
+  'star-wars-xwing-tribute': { name: 'Four Wings, Locked Open', movie: 'Star Wars', desc: 'A small fighter streaked by, its wings split into an X, cannon-tips glowing.' },
+  'star-wars-tie-tribute': { name: 'A Screaming Pair', movie: 'Star Wars', desc: 'Two fighters with hexagonal wing panels shrieked past in formation, gone as fast as they came.' },
+  'star-wars-deathstar-tribute': { name: 'A Moon That Should Not Be', movie: 'Star Wars', desc: 'A sphere far too round, far too artificial, hung in the dark — one great dish set into its surface like a hollow eye.' },
+  'star-trek-tribute': { name: 'Where No One Has Gone Before', movie: 'Star Trek', desc: 'A saucer, twin nacelles trailing blue light, cruised past on a five-year heading toward nowhere in particular.' },
+  'the-martian-tribute': { name: 'A Garden in the Rust', movie: 'The Martian (2015)', desc: 'A lone rover crossed a rust-red plain, and something impossibly green was growing in its shadow.' },
+  'arrival-tribute': { name: 'A Shell, Standing on End', movie: 'Arrival (2016)', desc: 'A vast dark shell hovered in perfect silence, mist pooling beneath it, offering no answers yet.' },
+  'close-encounters-tribute': { name: 'Five Notes, Answered', movie: 'Close Encounters of the Third Kind (1977)', desc: 'A craft strung with lights descended, blinking out a simple five-note phrase, and waited politely for a reply.' },
   reborn: { name: 'Cooling', desc: 'A universe completed, and a new one began.' },
 };
 
@@ -3686,7 +3686,9 @@ function renderBookList(listEl, entries) {
     const when = new Date(w.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     const replayable = isReplayable(w.id);
     const li = document.createElement('li');
-    li.innerHTML = `<span class="bname">${p.name}<span class="bwhen">${when}</span></span><div class="bdesc">${p.desc}</div>` +
+    li.innerHTML = `<span class="bname">${p.name}<span class="bwhen">${when}</span></span>` +
+      (p.movie ? `<div class="bmovie">${p.movie}</div>` : '') +
+      `<div class="bdesc">${p.desc}</div>` +
       (replayable ? `<button class="breplay" data-id="${w.id}">watch again</button>` : '');
     listEl.appendChild(li);
   }
