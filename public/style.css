@@ -437,8 +437,8 @@ body:has(#sidebar:not(.hidden)) #sidebarToggle { left: 242px; }
 /* ---- rare phenomenon banner: a bigger, rarer announcement than a toast ---- */
 #phenomenonBanner {
   position: fixed;
-  top: 40%; left: 50%;
-  transform: translate(-50%, -50%) scale(0.9);
+  top: 72px; left: 50%;
+  transform: translate(-50%, 0) scale(0.9);
   padding: 14px 26px;
   border-radius: 10px;
   background: rgba(10, 8, 22, 0.85);
@@ -452,7 +452,7 @@ body:has(#sidebar:not(.hidden)) #sidebarToggle { left: 242px; }
   transition: opacity 0.6s, transform 0.6s;
   z-index: 22;
 }
-#phenomenonBanner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+#phenomenonBanner.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
 
 /* ---- begin-again (cyclic reset) button ---- */
 #beginAgainBtn {

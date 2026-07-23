@@ -1474,24 +1474,23 @@ function spawnBigPhenomenon(now, forceKind) {
   const kind = forceKind || BIG_PHENOMENA[(Math.random() * BIG_PHENOMENA.length) | 0];
   const x = W * (0.2 + Math.random() * 0.6), y = H * (0.15 + Math.random() * 0.55);
 
-  // Every book-recorded phenomenon runs 3x longer than a background streak
-  // or meteor would, and anything that moves drifts at half speed — rare
+  // Every book-recorded phenomenon runs long and slow on purpose — rare
   // things are meant to be noticed and lingered on, not blinked through.
   if (kind === 'rogue-planet') {
     const fromLeft = Math.random() < 0.5;
     state.ambient.push({
-      kind, x: fromLeft ? -14 : W + 14, y,
-      vx: (fromLeft ? 1 : -1) * (0.175 + Math.random() * 0.125), vy: (Math.random() - 0.5) * 0.05,
+      kind, x: fromLeft ? -18 : W + 18, y,
+      vx: (fromLeft ? 1 : -1) * (0.13 + Math.random() * 0.09), vy: (Math.random() - 0.5) * 0.04,
       life: 1, decay: 1 / 42, hue: 210 + Math.random() * 60,
     });
   } else if (kind === 'gamma-ray-burst') {
-    state.ambient.push({ kind, x, y, vx: 0, vy: 0, life: 1, decay: 1 / 1.35, angle: Math.random() * Math.PI });
+    state.ambient.push({ kind, x, y, vx: 0, vy: 0, life: 1, decay: 1 / 2.4, angle: Math.random() * Math.PI });
   } else if (kind === 'auroral-storm') {
     // A shimmering curtain low in the sky, not a point event — lingers far
     // longer than anything else in the pool.
     state.ambient.push({
       kind, x: W * (0.1 + Math.random() * 0.5), y: H * (0.55 + Math.random() * 0.2),
-      vx: 0, vy: 0, life: 1, decay: 1 / 19.5, hue: 130 + Math.random() * 140,
+      vx: 0, vy: 0, life: 1, decay: 1 / 30, hue: 130 + Math.random() * 140,
     });
   } else if (kind === 'comet-flare') {
     // A comet mid-transit suddenly brightens (a real, if rare, outburst) —
@@ -1499,20 +1498,20 @@ function spawnBigPhenomenon(now, forceKind) {
     const fromLeft = Math.random() < 0.5;
     state.ambient.push({
       kind, x: fromLeft ? -10 : W + 10, y: H * (0.1 + Math.random() * 0.5),
-      vx: (fromLeft ? 1 : -1) * (0.55 + Math.random() * 0.3), vy: 0.075 + Math.random() * 0.1,
-      life: 1, decay: 1 / 15, trail: [],
+      vx: (fromLeft ? 1 : -1) * (0.4 + Math.random() * 0.22), vy: 0.055 + Math.random() * 0.075,
+      life: 1, decay: 1 / 24, trail: [],
     });
   } else {
     // supernova, black-hole, quasar, kilonova, meteoroid-collision, nova,
     // pulsar-flash, tidal-disruption all just happen in place and fade —
     // duration varies by how "big" the event is.
     const durations = {
-      supernova: 7.8, 'black-hole': 9, quasar: 6.6, kilonova: 7.2, 'meteoroid-collision': 4.8,
-      nova: 5.4, 'pulsar-flash': 4.8, 'tidal-disruption': 8.4,
+      supernova: 13, 'black-hole': 15, quasar: 11, kilonova: 12, 'meteoroid-collision': 8,
+      nova: 9, 'pulsar-flash': 8, 'tidal-disruption': 14,
     };
     state.ambient.push({
       kind, x, y, vx: 0, vy: 0, life: 1, decay: 1 / durations[kind],
-      angle: Math.random() * Math.PI * 2,
+      angle: Math.random() * Math.PI * 2, seed: Math.random() * 1000,
     });
   }
   witnessPhenomenon(kind);
@@ -1526,18 +1525,69 @@ function spawnTwinStreak() {
   const fromTop = Math.random() < 0.7;
   const color = Math.random() < 0.5 ? '198, 240, 200' : '216, 178, 240'; // emerald or violet, as rgb triples
   const x = Math.random() * W, y = fromTop ? -10 : Math.random() * H * 0.4;
-  const vx = (Math.random() < 0.5 ? -1 : 1) * (3 + Math.random() * 2.5);
-  const vy = 2 + Math.random() * 2;
+  const vx = (Math.random() < 0.5 ? -1 : 1) * (2.2 + Math.random() * 1.8);
+  const vy = 1.5 + Math.random() * 1.5;
   for (const dx of [0, 12]) {
-    state.ambient.push({ kind: 'rare', x: x + dx, y, vx, vy, color, life: 1, decay: 1 / 1.8 });
+    state.ambient.push({ kind: 'rare', x: x + dx, y, vx, vy, color, life: 1, decay: 1 / 3 });
   }
   witnessPhenomenon('twin-streak');
 }
 
+// A drifting, blinking visitor — small, medium, or large, in one of a few
+// silhouette styles. Not tied to any real phenomenon, just occasional
+// company. `forceSize`/`forceStyle` let "watch again" reproduce a specific
+// look instead of a random one.
+const CRAFT_SIZES = ['small', 'medium', 'large'];
+const CRAFT_STYLES = ['saucer', 'cylinder', 'wing', 'triangle'];
+function spawnAlienCraft(now, forceSize, forceStyle) {
+  const size = forceSize || CRAFT_SIZES[(Math.random() * 3) | 0];
+  const style = forceStyle || CRAFT_STYLES[(Math.random() * 4) | 0];
+  const scale = size === 'small' ? 1 : size === 'medium' ? 1.6 : 2.4;
+  const speedBase = size === 'small' ? 0.5 : size === 'medium' ? 0.32 : 0.2;
+  const durBase = size === 'small' ? 9 : size === 'medium' ? 12 : 16;
+  const fromLeft = Math.random() < 0.5;
+  state.ambient.push({
+    kind: 'alien-craft', size, style, scale,
+    x: fromLeft ? -20 * scale : W + 20 * scale, y: H * (0.12 + Math.random() * 0.5),
+    vx: (fromLeft ? 1 : -1) * speedBase * (0.8 + Math.random() * 0.4), vy: (Math.random() - 0.5) * 0.03,
+    life: 1, decay: 1 / durBase, seed: Math.random() * 1000,
+  });
+  witnessPhenomenon('alien-craft');
+}
+
+// The rarest sightings of all — small, hand-drawn nods to famous space
+// films. Purely a wink for anyone who recognises them; nothing mechanical
+// depends on spotting one. `forceKind` lets "watch again" replay a specific
+// egg instead of a random pick. `seed` is captured once here so each
+// sighting's fine detail (texture, fragment layout) stays fixed for its
+// whole lifetime instead of jittering randomly frame to frame.
+const EASTER_EGGS = ['gargantua-tribute', 'iss-tribute', 'ad-astra-tribute', 'hail-mary-tribute',
+  'gravity-tribute', 'monolith-tribute', 'mothership-tribute', 'dune-tribute',
+  'wall-e-tribute', 'moon-tribute', 'star-wars-tribute', 'alien-tribute'];
+function spawnEasterEgg(now, forceKind) {
+  const kind = forceKind || EASTER_EGGS[(Math.random() * EASTER_EGGS.length) | 0];
+  const durations = {
+    'gargantua-tribute': 18, 'iss-tribute': 14, 'ad-astra-tribute': 15, 'hail-mary-tribute': 14,
+    'gravity-tribute': 10, 'monolith-tribute': 16, 'mothership-tribute': 16, 'dune-tribute': 15,
+    'wall-e-tribute': 13, 'moon-tribute': 15, 'star-wars-tribute': 12, 'alien-tribute': 16,
+  };
+  const x = W * (0.22 + Math.random() * 0.56), y = H * (0.16 + Math.random() * 0.5);
+  let vx = 0, vy = 0;
+  if (kind === 'iss-tribute') vx = (Math.random() < 0.5 ? -1 : 1) * 0.12;
+  else if (kind === 'mothership-tribute') vx = (Math.random() < 0.5 ? -1 : 1) * 0.05;
+  else if (kind === 'wall-e-tribute') { vx = (Math.random() < 0.5 ? -1 : 1) * 0.1; vy = 0.02; }
+  else if (kind === 'gravity-tribute') { vx = (Math.random() < 0.5 ? -1 : 1) * 0.5; vy = 0.15; }
+  state.ambient.push({
+    kind, x, y, vx, vy, life: 1, decay: 1 / durations[kind],
+    seed: Math.random() * 1000, angle: Math.random() * Math.PI * 2,
+  });
+  witnessPhenomenon(kind);
+}
+
 function spawnAmbient(now) {
-  // Both tiers below were deliberately made rarer than the original tuning:
-  // idle time between visits is often long enough that a session catches
-  // few of these, and the book's "watch again" now covers the rest.
+  // Every tier below is deliberately rare: idle time between visits is
+  // often long enough that a session catches few of these, and the book's
+  // "watch again" now covers the rest.
   const roll0 = Math.random();
   if (roll0 < 0.0006) {
     spawnBigPhenomenon(now);
@@ -1546,6 +1596,16 @@ function spawnAmbient(now) {
   }
   if (roll0 < 0.0018) {
     spawnTwinStreak();
+    state.nextAmbientAt = now + 700 + Math.random() * 1800;
+    return;
+  }
+  if (roll0 < 0.0026) {
+    spawnAlienCraft(now);
+    state.nextAmbientAt = now + 700 + Math.random() * 1800;
+    return;
+  }
+  if (roll0 < 0.0032) {
+    spawnEasterEgg(now);
     state.nextAmbientAt = now + 700 + Math.random() * 1800;
     return;
   }
@@ -1612,6 +1672,17 @@ function drawAmbient(now, dt) {
       ctx.moveTo(a.x, a.y);
       ctx.lineTo(a.x - a.vx * tail, a.y - a.vy * tail);
       ctx.stroke();
+      if (a.kind === 'rare') {
+        // A scatter of bright sparkle pixels along the tail, for a more
+        // detailed look than a single gradient line.
+        for (let k = 1; k <= 3; k++) {
+          const f = k / 4;
+          ctx.globalAlpha = fade * (1 - f) * 0.8;
+          ctx.fillStyle = `rgb(${rgb})`;
+          ctx.fillRect(a.x - a.vx * tail * f - 1, a.y - a.vy * tail * f - 1, 2, 2);
+        }
+        ctx.globalAlpha = 1;
+      }
     } else if (a.kind === 'meteor') {
       a.trail.unshift({ x: a.x, y: a.y });
       if (a.trail.length > 9) a.trail.pop();
@@ -1624,40 +1695,81 @@ function drawAmbient(now, dt) {
       ctx.fillStyle = '#e8eef8';
       ctx.fillRect(a.x - 1, a.y - 1, 2.5, 2.5);
     } else if (a.kind === 'meteoroid-collision') {
-      // Fragments now separate and scatter roughly 2.5x further, to read
-      // as a bigger impact given the slower, longer-playing sequence.
+      // Three readable phases: two irregular rocks close in, collide in a
+      // brighter multi-fragment burst, then leave a fading dust cloud —
+      // instead of one flat approach-then-burst.
       if (a.life > 0.55) {
         const approach = (1 - a.life) / 0.45;
-        const d = (1 - approach) * 50 + 4;
+        const d = (1 - approach) * 55 + 5;
+        for (const sgn of [1, -1]) {
+          const rx = a.x + Math.cos(a.angle) * d * sgn, ry = a.y + Math.sin(a.angle) * d * sgn;
+          ctx.globalAlpha = fade;
+          ctx.fillStyle = '#8f8478';
+          ctx.fillRect(rx - 4, ry - 3, 8, 6);
+          ctx.fillStyle = '#a89c8c';
+          ctx.fillRect(rx - 2, ry - 4, 5, 3);
+          ctx.fillStyle = '#6f6558';
+          ctx.fillRect(rx + 1, ry + 1, 3, 3);
+        }
+      } else if (a.life > 0.2) {
+        const burst = 1 - (a.life - 0.2) / 0.35;
         ctx.globalAlpha = fade;
-        ctx.fillStyle = '#9a8f80';
-        ctx.fillRect(a.x + Math.cos(a.angle) * d - 3.5, a.y + Math.sin(a.angle) * d - 3.5, 7, 7);
-        ctx.fillRect(a.x - Math.cos(a.angle) * d - 3.5, a.y - Math.sin(a.angle) * d - 3.5, 7, 7);
-      } else {
-        const burst = 1 - a.life / 0.55;
-        ctx.globalAlpha = fade;
-        for (let k = 0; k < 6; k++) {
-          const bang = a.angle + k * 1.05;
-          const br = burst * 45;
+        for (let k = 0; k < 10; k++) {
+          const bang = a.angle + k * 0.63 + a.seed * 0.001;
+          const br = burst * 50;
+          const sz = 6 - (k % 3);
           ctx.fillStyle = k % 2 ? '#e8c8a0' : '#c8a878';
-          ctx.fillRect(a.x + Math.cos(bang) * br - 2.5, a.y + Math.sin(bang) * br - 2.5, 5, 5);
+          ctx.fillRect(a.x + Math.cos(bang) * br - sz / 2, a.y + Math.sin(bang) * br - sz / 2, sz, sz);
+        }
+      } else {
+        const t3 = 1 - a.life / 0.2;
+        ctx.globalAlpha = fade * 0.5;
+        for (let k = 0; k < 8; k++) {
+          const bang = a.angle + k * 0.79 + a.seed * 0.001;
+          const br = 50 + t3 * 25;
+          ctx.fillStyle = '#8a7d6c';
+          ctx.fillRect(a.x + Math.cos(bang) * br - 1.5, a.y + Math.sin(bang) * br - 1.5, 3, 3);
         }
       }
     } else if (a.kind === 'supernova') {
       const t2 = 1 - a.life;
       const core = Math.max(0, 1 - t2 * 3);
       if (core > 0) {
+        // A bright plus-shaped flare instead of a flat square.
         ctx.globalAlpha = core;
-        ctx.fillStyle = '#f2f6ff';
         const s2 = 7 + core * 14;
+        ctx.fillStyle = '#f2f6ff';
         ctx.fillRect(a.x - s2 / 2, a.y - s2 / 2, s2, s2);
+        ctx.fillStyle = '#dce8ff';
+        ctx.fillRect(a.x - s2 * 0.9, a.y - 2, s2 * 1.8, 4);
+        ctx.fillRect(a.x - 2, a.y - s2 * 0.9, 4, s2 * 1.8);
       }
+      // Two shells at different speeds and colours — a blue-white inner
+      // shock and a cooler, redder outer shell, echoing a real remnant.
       ctx.globalAlpha = fade * 0.7;
       ctx.strokeStyle = '#a8c8ff';
       ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.arc(a.x, a.y, t2 * 110, 0, Math.PI * 2);
       ctx.stroke();
+      if (t2 > 0.15) {
+        ctx.globalAlpha = fade * 0.4;
+        ctx.strokeStyle = '#e8a878';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, (t2 - 0.15) * 80, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      // Ejecta: a handful of bright specks flung outward with the shock.
+      if (t2 < 0.6) {
+        ctx.globalAlpha = fade * 0.8;
+        for (let k = 0; k < 8; k++) {
+          const ang = a.seed + k * 0.79;
+          const r = t2 * 95;
+          ctx.fillStyle = k % 2 ? '#fff2d8' : '#cfe0ff';
+          ctx.fillRect(a.x + Math.cos(ang) * r - 1, a.y + Math.sin(ang) * r - 1, 2, 2);
+        }
+      }
     } else if (a.kind === 'black-hole') {
       const pulse = 0.85 + 0.15 * Math.sin(now / 260);
       const ring = ctx.createRadialGradient(a.x, a.y, 15, a.x, a.y, 50 * pulse);
@@ -1674,29 +1786,58 @@ function drawAmbient(now, dt) {
       ctx.arc(a.x, a.y, 17, 0, Math.PI * 2);
       ctx.fill();
     } else if (a.kind === 'quasar') {
+      // A soft halo behind a bright accretion-disk core, plus two
+      // segmented jets that visibly march outward instead of a static line.
+      ctx.globalAlpha = fade * 0.25;
+      const glow = ctx.createRadialGradient(a.x, a.y, 0, a.x, a.y, 20);
+      glow.addColorStop(0, 'rgba(180, 210, 255, 0.9)');
+      glow.addColorStop(1, 'rgba(180, 210, 255, 0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, 20, 0, Math.PI * 2);
+      ctx.fill();
       ctx.globalAlpha = fade;
       ctx.fillStyle = '#eaf2ff';
       ctx.fillRect(a.x - 4.5, a.y - 4.5, 9, 9);
-      ctx.strokeStyle = `rgba(180, 210, 255, ${0.6 * fade})`;
-      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = 'rgba(200, 220, 255, 0.8)';
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(a.x - Math.cos(a.angle) * 65, a.y - Math.sin(a.angle) * 65);
-      ctx.lineTo(a.x + Math.cos(a.angle) * 65, a.y + Math.sin(a.angle) * 65);
+      ctx.arc(a.x, a.y, 6.5, 0, Math.PI * 2);
       ctx.stroke();
+      for (const dir of [1, -1]) {
+        for (let k = 0; k < 5; k++) {
+          const off = ((now / 90 + k * 14) % 65) * dir;
+          ctx.globalAlpha = fade * 0.55 * (1 - Math.abs(off) / 65);
+          ctx.fillStyle = '#bcd8ff';
+          ctx.fillRect(a.x + Math.cos(a.angle) * off - 1.5, a.y + Math.sin(a.angle) * off - 1.5, 3, 3);
+        }
+      }
     } else if (a.kind === 'gamma-ray-burst') {
-      const len = 500;
+      // A brief, intense "prompt" flash along the beam, followed by a
+      // dimmer, narrower afterglow — the burst's own real two-stage shape.
+      const t2 = 1 - a.life;
+      const prompt = t2 < 0.25;
+      const len = prompt ? 500 : 260;
       const bx0 = a.x - Math.cos(a.angle) * len, by0 = a.y - Math.sin(a.angle) * len;
       const bx1 = a.x + Math.cos(a.angle) * len, by1 = a.y + Math.sin(a.angle) * len;
+      const beamFade = prompt ? fade : fade * 0.35;
       const grad = ctx.createLinearGradient(bx0, by0, bx1, by1);
       grad.addColorStop(0, 'rgba(200, 230, 255, 0)');
-      grad.addColorStop(0.5, `rgba(230, 245, 255, ${fade})`);
+      grad.addColorStop(0.5, `rgba(230, 245, 255, ${beamFade})`);
       grad.addColorStop(1, 'rgba(200, 230, 255, 0)');
       ctx.strokeStyle = grad;
-      ctx.lineWidth = 6;
+      ctx.lineWidth = prompt ? 6 : 3;
       ctx.beginPath();
       ctx.moveTo(bx0, by0);
       ctx.lineTo(bx1, by1);
       ctx.stroke();
+      if (prompt) {
+        ctx.globalAlpha = fade * (1 - t2 / 0.25) * 0.9;
+        ctx.fillStyle = '#f4f8ff';
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, 10, 0, Math.PI * 2);
+        ctx.fill();
+      }
     } else if (a.kind === 'kilonova') {
       const t2 = 1 - a.life;
       const early = t2 < 0.35;
@@ -1704,6 +1845,8 @@ function drawAmbient(now, dt) {
       const s2 = early ? 7 + t2 * 34 : 11;
       ctx.fillStyle = early ? '#dce6ff' : '#e8965a';
       ctx.fillRect(a.x - s2 / 2, a.y - s2 / 2, s2, s2);
+      ctx.fillStyle = early ? '#f4f8ff' : '#ffc890';
+      ctx.fillRect(a.x - 2, a.y - 2, 4, 4);
       if (!early) {
         ctx.globalAlpha = fade * 0.4;
         ctx.strokeStyle = '#e8965a';
@@ -1711,28 +1854,60 @@ function drawAmbient(now, dt) {
         ctx.beginPath();
         ctx.arc(a.x, a.y, (t2 - 0.35) * 78, 0, Math.PI * 2);
         ctx.stroke();
+        // Heavy-element glints — a nod to the gold and platinum this kind
+        // of collision is thought to actually forge.
+        for (let k = 0; k < 4; k++) {
+          const ang = a.seed + k * 1.6 + now / 900;
+          const r = 14 + (t2 - 0.35) * 50;
+          ctx.globalAlpha = fade * (0.4 + 0.3 * Math.sin(now / 200 + k));
+          ctx.fillStyle = '#ffd77a';
+          ctx.fillRect(a.x + Math.cos(ang) * r - 1, a.y + Math.sin(ang) * r - 1, 2, 2);
+        }
       }
     } else if (a.kind === 'rogue-planet') {
-      ctx.globalAlpha = fade * 0.55;
-      ctx.fillStyle = `hsl(${a.hue}, 20%, 22%)`;
+      // Deliberately far more visible than a truly unlit world would be —
+      // invisible defeats the point of a witnessable phenomenon. A soft
+      // halo, a lit body, and a bright rim-light crescent instead of a
+      // flat, near-invisible disc.
+      const r = 16;
+      ctx.globalAlpha = fade * 0.18;
+      const halo = ctx.createRadialGradient(a.x, a.y, r * 0.6, a.x, a.y, r * 2.4);
+      halo.addColorStop(0, `hsla(${a.hue}, 40%, 55%, 0.5)`);
+      halo.addColorStop(1, `hsla(${a.hue}, 40%, 55%, 0)`);
+      ctx.fillStyle = halo;
       ctx.beginPath();
-      ctx.arc(a.x, a.y, 11, 0, Math.PI * 2);
+      ctx.arc(a.x, a.y, r * 2.4, 0, Math.PI * 2);
       ctx.fill();
-      ctx.globalAlpha = fade * 0.3;
-      ctx.strokeStyle = `hsl(${a.hue}, 30%, 40%)`;
-      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = fade * 0.9;
+      ctx.fillStyle = `hsl(${a.hue}, 25%, 30%)`;
       ctx.beginPath();
-      ctx.arc(a.x, a.y, 11, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.arc(a.x, a.y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, r, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.globalAlpha = fade * 0.85;
+      ctx.fillStyle = `hsl(${a.hue}, 45%, 62%)`;
+      ctx.beginPath();
+      ctx.arc(a.x + r * (a.vx >= 0 ? 0.6 : -0.6), a.y - r * 0.3, r * 0.85, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     } else if (a.kind === 'nova') {
       // A white dwarf's surface briefly reignites — smaller and quicker
       // than a supernova, no shockwave ring, just a flash that lingers.
+      // A pixelated flare-cross instead of a flat square, and real novae
+      // occasionally double-pulse before settling, so this one does too.
       const t2 = 1 - a.life;
-      const core = Math.max(0, 1 - t2 * 2.2);
+      const pulse2 = t2 > 0.3 && t2 < 0.45 ? (0.45 - t2) / 0.15 : 0;
+      const core = Math.max(0, 1 - t2 * 2.2) + pulse2 * 0.6;
       ctx.globalAlpha = fade;
-      const s2 = 5 + core * 10;
+      const s2 = 6 + core * 13;
       ctx.fillStyle = '#fff2d8';
       ctx.fillRect(a.x - s2 / 2, a.y - s2 / 2, s2, s2);
+      ctx.fillStyle = '#ffe0a0';
+      ctx.fillRect(a.x - s2 * 0.8, a.y - 1.5, s2 * 1.6, 3);
+      ctx.fillRect(a.x - 1.5, a.y - s2 * 0.8, 3, s2 * 1.6);
       ctx.globalAlpha = fade * 0.35;
       ctx.strokeStyle = '#e8c890';
       ctx.lineWidth = 2;
@@ -1779,19 +1954,26 @@ function drawAmbient(now, dt) {
       }
     } else if (a.kind === 'comet-flare') {
       // A comet's ice suddenly flashes to vapour mid-transit — like a
-      // meteor, but with a coma that visibly brightens then fades.
+      // meteor, but with a coma that visibly brightens then fades, and a
+      // real comet's two tails: a broad dust tail and a thinner, straighter
+      // ion tail alongside it.
       a.trail.unshift({ x: a.x, y: a.y });
       if (a.trail.length > 16) a.trail.pop();
       for (let k = 0; k < a.trail.length; k++) {
         ctx.globalAlpha = 0.5 * fade * (1 - k / a.trail.length);
         ctx.fillStyle = '#dce8ff';
         ctx.fillRect(a.trail[k].x, a.trail[k].y, 4, 4);
+        ctx.globalAlpha = 0.3 * fade * (1 - k / a.trail.length);
+        ctx.fillStyle = '#a8c8ff';
+        ctx.fillRect(a.trail[k].x - a.vy * 1.6, a.trail[k].y + a.vx * 1.6, 2, 2);
       }
       const flare = Math.sin(Math.PI * (1 - a.life));
       ctx.globalAlpha = fade;
       const s2 = 5 + flare * 16;
       ctx.fillStyle = '#eaf2ff';
       ctx.fillRect(a.x - s2 / 2, a.y - s2 / 2, s2, s2);
+      ctx.fillStyle = '#c8e0ff';
+      ctx.fillRect(a.x - 1.5, a.y - 1.5, 3, 3);
       if (flare > 0.4) {
         ctx.globalAlpha = fade * flare * 0.4;
         ctx.strokeStyle = '#bcd8ff';
@@ -1800,6 +1982,278 @@ function drawAmbient(now, dt) {
         ctx.arc(a.x, a.y, flare * 30, 0, Math.PI * 2);
         ctx.stroke();
       }
+    } else if (a.kind === 'alien-craft') {
+      // A drifting, blinking visitor — silhouette varies by style, size by
+      // a.scale. Faces its direction of travel and bobs gently.
+      ctx.save();
+      ctx.translate(a.x, a.y + Math.sin(now / 500 + a.seed) * 3);
+      ctx.scale(a.vx < 0 ? -a.scale : a.scale, a.scale);
+      ctx.globalAlpha = fade;
+      const bodyColor = '#8a94a8', bodyDark = '#5c6478', glow = '#bcd8ff';
+      if (a.style === 'saucer') {
+        ctx.fillStyle = bodyColor;
+        ctx.fillRect(-9, -2, 18, 3);
+        ctx.fillStyle = bodyDark;
+        ctx.fillRect(-5, -5, 10, 3);
+        ctx.fillStyle = glow;
+        ctx.fillRect(-1.5, -6, 3, 3);
+      } else if (a.style === 'cylinder') {
+        ctx.fillStyle = bodyColor;
+        ctx.fillRect(-11, -2.5, 22, 5);
+        ctx.fillStyle = bodyDark;
+        ctx.fillRect(-11, -2.5, 4, 5);
+        ctx.fillRect(7, -2.5, 4, 5);
+      } else if (a.style === 'wing') {
+        ctx.fillStyle = bodyColor;
+        ctx.fillRect(-2, -1.5, 4, 3);
+        ctx.fillStyle = bodyDark;
+        ctx.fillRect(-10, 0, 8, 2);
+        ctx.fillRect(2, 0, 8, 2);
+      } else {
+        ctx.fillStyle = bodyDark;
+        ctx.beginPath();
+        ctx.moveTo(0, -6);
+        ctx.lineTo(-10, 5);
+        ctx.lineTo(10, 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = glow;
+        ctx.fillRect(-1, 2, 2, 2);
+      }
+      // Blinking running lights — a slow colour chase, quietly alien
+      // rather than a standard aircraft red/green pair.
+      for (let k = 0; k < 3; k++) {
+        const phase = (now / 260 + k * 2.1 + a.seed) % 6.28;
+        const b = Math.max(0, Math.sin(phase));
+        if (b > 0.4) {
+          ctx.globalAlpha = fade * b;
+          ctx.fillStyle = k === 0 ? '#ff9a7a' : k === 1 ? '#9affc0' : '#9ac8ff';
+          ctx.fillRect(-9 + k * 9, 3, 2, 2);
+        }
+      }
+      ctx.restore();
+    } else if (a.kind === 'gargantua-tribute') {
+      // A colossal, warped black hole — a nod to a certain 2014 film's most
+      // famous shot, right down to a tiny craft dwarfed by it.
+      ctx.globalAlpha = fade * 0.85;
+      ctx.strokeStyle = '#ffdca8';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.ellipse(a.x, a.y, 46, 12, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(a.x, a.y - 16, 30, 8, 0, Math.PI, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, 15, 0, Math.PI * 2);
+      ctx.fill();
+      const cxp = a.x + Math.sin(now / 4000 + a.seed) * 60, cyp = a.y + 30;
+      ctx.globalAlpha = fade * 0.8;
+      ctx.fillStyle = '#cfd8e8';
+      ctx.fillRect(cxp - 3, cyp - 1, 6, 2);
+    } else if (a.kind === 'iss-tribute') {
+      // A modular outpost with solar wings — quietly orbiting since 1998.
+      ctx.save();
+      ctx.translate(a.x, a.y);
+      ctx.rotate(Math.sin(now / 3000) * 0.08);
+      ctx.globalAlpha = fade * 0.9;
+      ctx.fillStyle = '#c8ceda';
+      ctx.fillRect(-9, -1.5, 18, 3);
+      ctx.fillStyle = '#3a5aa0';
+      ctx.fillRect(-16, -5, 6, 10);
+      ctx.fillRect(10, -5, 6, 10);
+      ctx.fillStyle = '#e8ecf4';
+      ctx.fillRect(-3, -3, 6, 6);
+      ctx.globalAlpha = fade * (0.5 + 0.5 * Math.sin(now / 300));
+      ctx.fillStyle = '#ff8a5a';
+      ctx.fillRect(-1, -1, 1.5, 1.5);
+      ctx.restore();
+    } else if (a.kind === 'ad-astra-tribute') {
+      // An antenna array vast enough to hear the edge of the solar system,
+      // and a lone figure drifting near it.
+      ctx.globalAlpha = fade * 0.85;
+      ctx.strokeStyle = '#9aa8c0';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, 22, Math.PI * 0.15, Math.PI * 0.85);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y + 20);
+      ctx.lineTo(a.x, a.y + 4);
+      ctx.stroke();
+      ctx.fillStyle = '#cfd8e8';
+      ctx.fillRect(a.x - 2, a.y + 18, 4, 4);
+      const ax = a.x + 34, ay = a.y - 6 + Math.sin(now / 800 + a.seed) * 4;
+      ctx.globalAlpha = fade * 0.8;
+      ctx.fillStyle = '#e8ecf4';
+      ctx.fillRect(ax - 1.5, ay - 3, 3, 5);
+      ctx.fillRect(ax - 1.5, ay - 5, 3, 3);
+    } else if (a.kind === 'hail-mary-tribute') {
+      // Two ships from very different worlds, sitting side by side.
+      ctx.globalAlpha = fade * 0.85;
+      ctx.fillStyle = '#c8ceda';
+      ctx.fillRect(a.x - 26, a.y - 3, 14, 6);
+      ctx.fillStyle = '#5c6478';
+      ctx.fillRect(a.x - 24, a.y - 5, 4, 3);
+      ctx.fillStyle = '#7ac89a';
+      ctx.beginPath();
+      ctx.ellipse(a.x + 20, a.y, 9, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#4f8a6a';
+      ctx.beginPath();
+      ctx.ellipse(a.x + 20, a.y, 5, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      const p = 0.4 + 0.6 * Math.abs(Math.sin(now / 400));
+      ctx.globalAlpha = fade * p * 0.7;
+      ctx.strokeStyle = '#ffe8a0';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(a.x - 12, a.y);
+      ctx.lineTo(a.x + 11, a.y);
+      ctx.stroke();
+    } else if (a.kind === 'gravity-tribute') {
+      // Fast, chaotic debris, and a lone figure tumbling helplessly through it.
+      ctx.globalAlpha = fade * 0.7;
+      for (let k = 0; k < 7; k++) {
+        const ang = a.seed + k * 0.9;
+        const dx = Math.cos(ang) * (10 + k * 3), dy = Math.sin(ang) * (6 + k * 2);
+        ctx.fillStyle = k % 2 ? '#9aa4b5' : '#6c7488';
+        ctx.fillRect(a.x + dx - 1.5, a.y + dy - 1.5, 3, 3);
+      }
+      ctx.save();
+      ctx.translate(a.x, a.y);
+      ctx.rotate(now / 500 + a.seed);
+      ctx.globalAlpha = fade * 0.9;
+      ctx.fillStyle = '#e8ecf4';
+      ctx.fillRect(-1.5, -4, 3, 6);
+      ctx.fillRect(-1.5, -6, 3, 3);
+      ctx.restore();
+    } else if (a.kind === 'monolith-tribute') {
+      // A featureless slab, suspiciously exact proportions, perfectly still.
+      // Fill is a cool charcoal rather than true black — true black nearly
+      // vanished against the background gradient, which defeats a slab
+      // that's supposed to be unmistakable.
+      const pulse = 0.5 + 0.5 * Math.sin(now / 1400);
+      ctx.globalAlpha = fade * 0.95;
+      ctx.fillStyle = '#181c26';
+      ctx.fillRect(a.x - 6, a.y - 20, 12, 40);
+      ctx.globalAlpha = fade * (0.35 + 0.3 * pulse);
+      ctx.strokeStyle = '#8aa0d0';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(a.x - 6, a.y - 20, 12, 40);
+    } else if (a.kind === 'mothership-tribute') {
+      // Something enormous, sliding slowly, blotting out a city's worth of stars.
+      ctx.globalAlpha = fade * 0.9;
+      ctx.fillStyle = '#04060a';
+      ctx.beginPath();
+      ctx.ellipse(a.x, a.y, 90, 26, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = fade * 0.35;
+      ctx.strokeStyle = '#4a5a7a';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(a.x, a.y, 90, 26, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      for (let k = 0; k < 5; k++) {
+        ctx.globalAlpha = fade * (0.3 + 0.5 * Math.sin(now / 260 + k * 1.4));
+        ctx.fillStyle = '#ff8a4a';
+        ctx.fillRect(a.x - 60 + k * 30, a.y + 10, 2, 2);
+      }
+    } else if (a.kind === 'dune-tribute') {
+      // A pale desert world under two slowly orbiting moons.
+      ctx.globalAlpha = fade * 0.9;
+      ctx.fillStyle = '#c8945a';
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, 20, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#a8703c';
+      for (let k = 0; k < 6; k++) {
+        const yy = a.y - 14 + k * 5;
+        ctx.fillRect(a.x - 16 + (k % 2) * 3, yy, 14, 2);
+      }
+      for (const m of [{ r: 34, sp: 900, s: 3 }, { r: 46, sp: 1400, s: 2.5 }]) {
+        const ang = now / m.sp + a.seed;
+        ctx.globalAlpha = fade * 0.85;
+        ctx.fillStyle = '#d8d0c0';
+        ctx.beginPath();
+        ctx.arc(a.x + Math.cos(ang) * m.r, a.y + Math.sin(ang) * m.r * 0.4, m.s, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (a.kind === 'wall-e-tribute') {
+      // A small boxy robot, still tending something green against every odd.
+      ctx.globalAlpha = fade * 0.9;
+      ctx.fillStyle = '#c8a858';
+      ctx.fillRect(a.x - 5, a.y - 4, 10, 8);
+      ctx.fillStyle = '#3a3a3a';
+      ctx.fillRect(a.x - 4, a.y - 7, 3, 3);
+      ctx.fillRect(a.x + 1, a.y - 7, 3, 3);
+      ctx.fillStyle = '#8ad4ff';
+      ctx.fillRect(a.x - 3.5, a.y - 6.5, 2, 2);
+      ctx.fillRect(a.x + 1.5, a.y - 6.5, 2, 2);
+      ctx.fillStyle = '#5cb86c';
+      ctx.fillRect(a.x + 6, a.y - 1, 2, 3);
+      ctx.fillRect(a.x + 7, a.y - 3, 2, 3);
+    } else if (a.kind === 'moon-tribute') {
+      // A lonely lunar base — and for a moment, two of the same person.
+      ctx.globalAlpha = fade * 0.85;
+      ctx.fillStyle = '#8a8a90';
+      ctx.fillRect(a.x - 40, a.y + 6, 80, 4);
+      ctx.fillStyle = '#c8ccd8';
+      ctx.beginPath();
+      ctx.arc(a.x - 10, a.y + 2, 8, Math.PI, 0);
+      ctx.fill();
+      ctx.globalAlpha = fade * (0.5 + 0.5 * Math.sin(now / 400));
+      ctx.fillStyle = '#ffd88a';
+      ctx.fillRect(a.x - 11, a.y - 2, 2, 2);
+      for (const fx of [8, 16]) {
+        const bob = Math.sin(now / 300 + fx) * 1.5;
+        ctx.globalAlpha = fade * 0.9;
+        ctx.fillStyle = '#e8ecf4';
+        ctx.fillRect(a.x + fx - 1, a.y + 2 + bob, 2, 4);
+        ctx.fillRect(a.x + fx - 1, a.y + bob, 2, 2);
+      }
+    } else if (a.kind === 'star-wars-tribute') {
+      // A saucer-shaped freighter that hangs still a moment too long, then
+      // blurs into a streak of light and is gone.
+      const t2 = 1 - a.life;
+      const jumping = t2 > 0.85;
+      ctx.globalAlpha = fade * 0.9;
+      if (!jumping) {
+        ctx.fillStyle = '#b8bcc8';
+        ctx.beginPath();
+        ctx.ellipse(a.x, a.y, 14, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#7a7e8c';
+        ctx.beginPath();
+        ctx.ellipse(a.x, a.y - 3, 6, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#9ac8ff';
+        ctx.fillRect(a.x - 1, a.y - 3, 2, 2);
+      } else {
+        const stretch = (t2 - 0.85) / 0.15;
+        ctx.globalAlpha = fade * (1 - stretch);
+        ctx.strokeStyle = '#cfe0ff';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(a.x - stretch * 140, a.y);
+        ctx.lineTo(a.x, a.y);
+        ctx.stroke();
+      }
+    } else if (a.kind === 'alien-tribute') {
+      // A horseshoe-shaped wreck, cold and silent — and something inside,
+      // still faintly warm.
+      ctx.globalAlpha = fade * 0.85;
+      ctx.strokeStyle = '#5a6070';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, 20, Math.PI * 1.1, Math.PI * 1.9);
+      ctx.stroke();
+      ctx.globalAlpha = fade * (0.15 + 0.15 * Math.sin(now / 900));
+      ctx.fillStyle = '#8a3a3a';
+      ctx.beginPath();
+      ctx.arc(a.x, a.y - 20, 3, 0, Math.PI * 2);
+      ctx.fill();
     } else {
       a.spin += dt / 900;
       ctx.globalAlpha = 0.55 * fade;
@@ -2951,6 +3405,22 @@ const PHENOMENA = {
   'tidal-disruption': { name: 'A Star, Torn Apart', desc: 'A wandering star strayed too close to a black hole and was stretched into a glowing streak.' },
   'auroral-storm': { name: 'An Auroral Storm', desc: 'Charged particles met a magnetic field, and the sky itself began to glow.' },
   'comet-flare': { name: "A Comet's Outburst", desc: "A comet's ice flashed to vapour, and it burned brighter for a moment." },
+  'alien-craft': { name: 'An Unidentified Craft', desc: 'Something with running lights, and clearly not one of ours, drifted past and kept going.' },
+  // A dozen small, hand-drawn nods to famous space films — the rarest
+  // sightings in the whole book. Each name deliberately avoids trademarked
+  // titles or ship names; if you recognise it, that's the point.
+  'gargantua-tribute': { name: 'A Warped Horizon', desc: 'A colossal black hole bent its own accretion disk impossibly around itself — and for a moment, something small and metallic drifted past its light.' },
+  'iss-tribute': { name: 'A Modular Outpost', desc: "A cluster of modules and solar wings caught the light, exactly where a certain outpost has quietly orbited since 1998." },
+  'ad-astra-tribute': { name: 'The Loneliest Signal', desc: 'A lone figure drifted near an antenna array vast enough to hear the edge of the solar system, waiting on a reply that takes a long time to come.' },
+  'hail-mary-tribute': { name: 'An Unlikely Handshake', desc: 'Two ships from very different worlds sat side by side and, improbably, began to talk.' },
+  'gravity-tribute': { name: 'Silence, Then Debris', desc: "A cloud of high-speed debris tumbled past — and for one heart-stopping moment, so did someone who'd lost their tether." },
+  'monolith-tribute': { name: 'A Perfect Black Rectangle', desc: 'A featureless slab hung in the dark, its proportions suspiciously exact. It did not respond to hailing.' },
+  'mothership-tribute': { name: 'A Shadow Larger Than the Moon', desc: "Something enormous slid across the starfield, blotting out a city's worth of stars, and then was gone." },
+  'dune-tribute': { name: 'Two Moons Over Dunes', desc: 'A pale desert world turned slowly under two moons, and something vast moved beneath its sand.' },
+  'wall-e-tribute': { name: 'A Small Robot, A Small Plant', desc: 'A boxy little robot drifted by, clutching something green and growing — tending it against every odd.' },
+  'moon-tribute': { name: 'Two of the Same Face', desc: 'A lonely lunar base blinked its lights, and just for a moment, there seemed to be two of the same person walking outside.' },
+  'star-wars-tribute': { name: 'A Familiar Silhouette', desc: 'A saucer-shaped freighter hung still a moment too long, then blurred into a streak of light and was gone.' },
+  'alien-tribute': { name: 'A Derelict, and Something Waiting', desc: 'A horseshoe-shaped wreck drifted, cold and silent — and deep inside, something in a leathery egg was not quite dead.' },
   reborn: { name: 'Cooling', desc: 'A universe completed, and a new one began.' },
 };
 
@@ -2990,7 +3460,13 @@ function replayPhenomenon(id) {
   if (!PHENOMENA[id]) return;
   $('bookPanel').classList.remove('show');
   if (id === 'twin-streak') spawnTwinStreak();
+  else if (id === 'alien-craft') spawnAlienCraft(performance.now());
   else if (BIG_PHENOMENA.includes(id)) spawnBigPhenomenon(performance.now(), id);
+  else if (EASTER_EGGS.includes(id)) spawnEasterEgg(performance.now(), id);
+}
+
+function isReplayable(id) {
+  return id === 'twin-streak' || id === 'alien-craft' || BIG_PHENOMENA.includes(id) || EASTER_EGGS.includes(id);
 }
 
 function renderBook() {
@@ -3003,7 +3479,7 @@ function renderBook() {
     const p = PHENOMENA[w.id];
     if (!p) continue;
     const when = new Date(w.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-    const replayable = w.id === 'twin-streak' || BIG_PHENOMENA.includes(w.id);
+    const replayable = isReplayable(w.id);
     const li = document.createElement('li');
     li.innerHTML = `<span class="bname">${p.name}<span class="bwhen">${when}</span></span><div class="bdesc">${p.desc}</div>` +
       (replayable ? `<button class="breplay" data-id="${w.id}">watch again</button>` : '');
