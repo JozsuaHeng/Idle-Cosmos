@@ -1563,13 +1563,23 @@ function spawnAlienCraft(now, forceSize, forceStyle) {
 // whole lifetime instead of jittering randomly frame to frame.
 const EASTER_EGGS = ['gargantua-tribute', 'iss-tribute', 'ad-astra-tribute', 'hail-mary-tribute',
   'gravity-tribute', 'monolith-tribute', 'mothership-tribute', 'dune-tribute',
-  'wall-e-tribute', 'moon-tribute', 'star-wars-tribute', 'alien-tribute'];
+  'wall-e-tribute', 'moon-tribute', 'star-wars-tribute', 'alien-tribute',
+  // Five separate Star Wars sightings in all (the freighter above, plus these
+  // four) — different ships, different scale, per explicit request. The
+  // capital ships are deliberately huge and slow; the fighters are small,
+  // fast, and paired/escorted for contrast.
+  'star-wars-destroyer-tribute', 'star-wars-xwing-tribute', 'star-wars-tie-tribute',
+  'star-wars-deathstar-tribute',
+  'star-trek-tribute', 'the-martian-tribute', 'arrival-tribute', 'close-encounters-tribute'];
 function spawnEasterEgg(now, forceKind) {
   const kind = forceKind || EASTER_EGGS[(Math.random() * EASTER_EGGS.length) | 0];
   const durations = {
     'gargantua-tribute': 18, 'iss-tribute': 14, 'ad-astra-tribute': 15, 'hail-mary-tribute': 14,
     'gravity-tribute': 10, 'monolith-tribute': 16, 'mothership-tribute': 16, 'dune-tribute': 15,
     'wall-e-tribute': 13, 'moon-tribute': 15, 'star-wars-tribute': 12, 'alien-tribute': 16,
+    'star-wars-destroyer-tribute': 17, 'star-wars-xwing-tribute': 9, 'star-wars-tie-tribute': 9,
+    'star-wars-deathstar-tribute': 18, 'star-trek-tribute': 14, 'the-martian-tribute': 15,
+    'arrival-tribute': 16, 'close-encounters-tribute': 15,
   };
   const x = W * (0.22 + Math.random() * 0.56), y = H * (0.16 + Math.random() * 0.5);
   let vx = 0, vy = 0;
@@ -1577,6 +1587,12 @@ function spawnEasterEgg(now, forceKind) {
   else if (kind === 'mothership-tribute') vx = (Math.random() < 0.5 ? -1 : 1) * 0.05;
   else if (kind === 'wall-e-tribute') { vx = (Math.random() < 0.5 ? -1 : 1) * 0.1; vy = 0.02; }
   else if (kind === 'gravity-tribute') { vx = (Math.random() < 0.5 ? -1 : 1) * 0.5; vy = 0.15; }
+  else if (kind === 'star-wars-destroyer-tribute') vx = (Math.random() < 0.5 ? -1 : 1) * 0.06;
+  else if (kind === 'star-wars-deathstar-tribute') vx = (Math.random() < 0.5 ? -1 : 1) * 0.03;
+  else if (kind === 'star-wars-xwing-tribute') vx = (Math.random() < 0.5 ? -1 : 1) * 0.9;
+  else if (kind === 'star-wars-tie-tribute') vx = (Math.random() < 0.5 ? -1 : 1) * 0.85;
+  else if (kind === 'star-trek-tribute') vx = (Math.random() < 0.5 ? -1 : 1) * 0.15;
+  else if (kind === 'close-encounters-tribute') vx = (Math.random() < 0.5 ? -1 : 1) * 0.1;
   state.ambient.push({
     kind, x, y, vx, vy, life: 1, decay: 1 / durations[kind],
     seed: Math.random() * 1000, angle: Math.random() * Math.PI * 2,
@@ -2254,6 +2270,184 @@ function drawAmbient(now, dt) {
       ctx.beginPath();
       ctx.arc(a.x, a.y - 20, 3, 0, Math.PI * 2);
       ctx.fill();
+    } else if (a.kind === 'star-wars-destroyer-tribute') {
+      // A wedge-shaped capital ship, seemingly endless — deliberately huge
+      // and slow, engines glowing along its trailing edge.
+      ctx.save();
+      ctx.translate(a.x, a.y);
+      ctx.scale(a.vx < 0 ? -1 : 1, 1);
+      ctx.globalAlpha = fade * 0.92;
+      ctx.fillStyle = '#7a8090';
+      ctx.beginPath();
+      ctx.moveTo(-70, 0);
+      ctx.lineTo(50, -22);
+      ctx.lineTo(50, 22);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#565c6c';
+      ctx.beginPath();
+      ctx.moveTo(-70, 0);
+      ctx.lineTo(30, -10);
+      ctx.lineTo(30, 10);
+      ctx.closePath();
+      ctx.fill();
+      for (let k = 0; k < 3; k++) {
+        ctx.globalAlpha = fade * (0.5 + 0.4 * Math.sin(now / 200 + k));
+        ctx.fillStyle = '#8ac8ff';
+        ctx.fillRect(-74, -8 + k * 8, 4, 3);
+      }
+      ctx.restore();
+    } else if (a.kind === 'star-wars-xwing-tribute') {
+      // A small fighter, wings split into an X, cannon-tips glowing.
+      ctx.save();
+      ctx.translate(a.x, a.y);
+      ctx.scale(a.vx < 0 ? -1 : 1, 1);
+      ctx.globalAlpha = fade * 0.95;
+      ctx.fillStyle = '#d8dce4';
+      ctx.fillRect(-7, -1.5, 14, 3);
+      ctx.fillStyle = '#9aa2b0';
+      ctx.fillRect(2, -6, 8, 2);
+      ctx.fillRect(2, 4, 8, 2);
+      ctx.fillRect(-6, -6, 8, 2);
+      ctx.fillRect(-6, 4, 8, 2);
+      ctx.fillStyle = '#ff5a4a';
+      for (const ty of [-7, -5, 5, 7]) ctx.fillRect(10, ty, 1.5, 1.5);
+      ctx.fillStyle = '#8ac8ff';
+      ctx.fillRect(-9, -1, 2, 2);
+      ctx.restore();
+    } else if (a.kind === 'star-wars-tie-tribute') {
+      // A pair of fighters with hexagonal wing panels, screaming past in
+      // formation — TIEs almost always travel in twos.
+      ctx.save();
+      ctx.translate(a.x, a.y);
+      ctx.scale(a.vx < 0 ? -1 : 1, 1);
+      ctx.globalAlpha = fade * 0.9;
+      for (const oy of [-7, 7]) {
+        ctx.fillStyle = '#4a4e58';
+        ctx.fillRect(-3, oy - 5, 3, 10);
+        ctx.fillRect(6, oy - 5, 3, 10);
+        ctx.fillStyle = '#8a90a0';
+        ctx.beginPath();
+        ctx.arc(3, oy, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ff8a5a';
+        ctx.fillRect(2, oy - 1, 2, 2);
+      }
+      ctx.restore();
+    } else if (a.kind === 'star-wars-deathstar-tribute') {
+      // A sphere far too round, far too artificial — one great dish set
+      // into its surface. Huge, ominous, and barely moving.
+      ctx.globalAlpha = fade * 0.92;
+      ctx.fillStyle = '#8a8e98';
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, 46, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#6a6e78';
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, 46, Math.PI, Math.PI * 1.5);
+      ctx.fill();
+      ctx.fillStyle = '#3a3e48';
+      ctx.beginPath();
+      ctx.arc(a.x - 16, a.y - 14, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#8a8e98';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(a.x - 16, a.y - 14, 10, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = fade * (0.15 + 0.15 * Math.sin(now / 700));
+      ctx.fillStyle = '#7affb0';
+      ctx.beginPath();
+      ctx.arc(a.x - 16, a.y - 14, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = fade * 0.4;
+      ctx.strokeStyle = '#50545e';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(a.x - 46, a.y + 4);
+      ctx.lineTo(a.x + 46, a.y + 4);
+      ctx.stroke();
+    } else if (a.kind === 'star-trek-tribute') {
+      // A saucer and hull with twin nacelles, cruising on a heading toward
+      // nowhere in particular.
+      ctx.save();
+      ctx.translate(a.x, a.y);
+      ctx.scale(a.vx < 0 ? -1 : 1, 1);
+      ctx.globalAlpha = fade * 0.92;
+      ctx.fillStyle = '#dfe4ee';
+      ctx.beginPath();
+      ctx.ellipse(-4, -2, 10, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#c8cedc';
+      ctx.fillRect(4, -1, 16, 2);
+      for (const oy of [-6, 6]) {
+        ctx.globalAlpha = fade * 0.92;
+        ctx.fillStyle = '#aab4c8';
+        ctx.fillRect(14, oy - 1.5, 12, 3);
+        ctx.globalAlpha = fade * (0.5 + 0.5 * Math.sin(now / 260));
+        ctx.fillStyle = '#8ecfff';
+        ctx.fillRect(25, oy - 1, 2, 2);
+      }
+      ctx.restore();
+    } else if (a.kind === 'the-martian-tribute') {
+      // A rover crossing rust-red ground, and something impossibly green
+      // growing in its shadow.
+      ctx.globalAlpha = fade * 0.9;
+      ctx.fillStyle = '#a8552e';
+      ctx.fillRect(a.x - 44, a.y + 8, 88, 6);
+      ctx.fillStyle = '#8a4324';
+      ctx.fillRect(a.x - 44, a.y + 8, 88, 2);
+      ctx.fillStyle = '#d8d0c0';
+      ctx.fillRect(a.x - 6, a.y - 2, 12, 6);
+      ctx.fillStyle = '#403830';
+      ctx.fillRect(a.x - 6, a.y + 4, 3, 3);
+      ctx.fillRect(a.x + 3, a.y + 4, 3, 3);
+      ctx.fillStyle = '#c8c0b0';
+      ctx.fillRect(a.x - 1, a.y - 8, 1.5, 6);
+      ctx.globalAlpha = fade * (0.7 + 0.3 * Math.sin(now / 500));
+      ctx.fillStyle = '#5cb86c';
+      ctx.fillRect(a.x - 10, a.y + 4, 2, 3);
+      ctx.fillRect(a.x - 12, a.y + 6, 2, 2);
+    } else if (a.kind === 'arrival-tribute') {
+      // A vast dark shell, hovering in perfect silence, mist pooling
+      // beneath it — offering no answers yet.
+      const bob = Math.sin(now / 900 + a.seed) * 2;
+      ctx.globalAlpha = fade * 0.9;
+      ctx.fillStyle = '#1c2026';
+      ctx.beginPath();
+      ctx.ellipse(a.x, a.y + bob, 20, 34, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = fade * 0.3;
+      ctx.strokeStyle = '#5a6a80';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(a.x, a.y + bob, 20, 34, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = fade * 0.2;
+      ctx.fillStyle = '#8a9cb0';
+      ctx.beginPath();
+      ctx.ellipse(a.x, a.y + 38, 30, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (a.kind === 'close-encounters-tribute') {
+      // A craft strung with lights, blinking out a simple five-note
+      // phrase and waiting politely for a reply.
+      ctx.globalAlpha = fade * 0.9;
+      ctx.fillStyle = '#8a94a8';
+      ctx.beginPath();
+      ctx.ellipse(a.x, a.y, 16, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#c8ceda';
+      ctx.beginPath();
+      ctx.ellipse(a.x, a.y - 4, 7, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      const active = Math.floor(now / 350) % 5;
+      const colors = ['#ff8a5a', '#ffd85a', '#8aff9a', '#5ac8ff', '#c88aff'];
+      for (let k = 0; k < 5; k++) {
+        const lx = a.x - 12 + k * 6;
+        ctx.globalAlpha = fade * (k === active ? 1 : 0.15);
+        ctx.fillStyle = colors[k];
+        ctx.fillRect(lx, a.y + 5, 2.5, 2.5);
+      }
     } else {
       a.spin += dt / 900;
       ctx.globalAlpha = 0.55 * fade;
@@ -3421,6 +3615,14 @@ const PHENOMENA = {
   'moon-tribute': { name: 'Two of the Same Face', desc: 'A lonely lunar base blinked its lights, and just for a moment, there seemed to be two of the same person walking outside.' },
   'star-wars-tribute': { name: 'A Familiar Silhouette', desc: 'A saucer-shaped freighter hung still a moment too long, then blurred into a streak of light and was gone.' },
   'alien-tribute': { name: 'A Derelict, and Something Waiting', desc: 'A horseshoe-shaped wreck drifted, cold and silent — and deep inside, something in a leathery egg was not quite dead.' },
+  'star-wars-destroyer-tribute': { name: 'A Wedge Against the Stars', desc: 'A wedge-shaped capital ship slid past, seemingly endless, engines glowing along its full length.' },
+  'star-wars-xwing-tribute': { name: 'Four Wings, Locked Open', desc: 'A small fighter streaked by, its wings split into an X, cannon-tips glowing.' },
+  'star-wars-tie-tribute': { name: 'A Screaming Pair', desc: 'Two fighters with hexagonal wing panels shrieked past in formation, gone as fast as they came.' },
+  'star-wars-deathstar-tribute': { name: 'A Moon That Should Not Be', desc: 'A sphere far too round, far too artificial, hung in the dark — one great dish set into its surface like a hollow eye.' },
+  'star-trek-tribute': { name: 'Where No One Has Gone Before', desc: 'A saucer, twin nacelles trailing blue light, cruised past on a five-year heading toward nowhere in particular.' },
+  'the-martian-tribute': { name: 'A Garden in the Rust', desc: 'A lone rover crossed a rust-red plain, and something impossibly green was growing in its shadow.' },
+  'arrival-tribute': { name: 'A Shell, Standing on End', desc: 'A vast dark shell hovered in perfect silence, mist pooling beneath it, offering no answers yet.' },
+  'close-encounters-tribute': { name: 'Five Notes, Answered', desc: 'A craft strung with lights descended, blinking out a simple five-note phrase, and waited politely for a reply.' },
   reborn: { name: 'Cooling', desc: 'A universe completed, and a new one began.' },
 };
 
@@ -3439,8 +3641,14 @@ function witnessPhenomenon(id) {
   showPhenomenonBanner(p.name); // announced every time — seeing it is the reward
 }
 
+// Two separate books share the same underlying `witnessed` record — the
+// achievement book covers everything except film tributes, the film reel
+// covers only EASTER_EGGS. Split by filtering, not by separate storage.
 function updateBookButton() {
-  $('bookBtn').textContent = witnessed.length ? `📖 ${witnessed.length}` : '📖';
+  const rest = witnessed.filter((w) => !EASTER_EGGS.includes(w.id));
+  const movies = witnessed.filter((w) => EASTER_EGGS.includes(w.id));
+  $('bookBtn').textContent = rest.length ? `📖 ${rest.length}` : '📖';
+  $('movieBookBtn').textContent = movies.length ? `🎬 ${movies.length}` : '🎬';
 }
 updateBookButton();
 
@@ -3459,6 +3667,7 @@ function showPhenomenonBanner(name) {
 function replayPhenomenon(id) {
   if (!PHENOMENA[id]) return;
   $('bookPanel').classList.remove('show');
+  $('movieBookPanel').classList.remove('show');
   if (id === 'twin-streak') spawnTwinStreak();
   else if (id === 'alien-craft') spawnAlienCraft(performance.now());
   else if (BIG_PHENOMENA.includes(id)) spawnBigPhenomenon(performance.now(), id);
@@ -3469,13 +3678,9 @@ function isReplayable(id) {
   return id === 'twin-streak' || id === 'alien-craft' || BIG_PHENOMENA.includes(id) || EASTER_EGGS.includes(id);
 }
 
-function renderBook() {
-  $('bookIntro').textContent = witnessed.length
-    ? 'A record of rare things you happened to see.'
-    : 'Nothing recorded yet. The universe is full of rare things — keep watching.';
-  const list = $('bookList');
-  list.innerHTML = '';
-  for (const w of [...witnessed].sort((a, b) => b.at - a.at)) {
+function renderBookList(listEl, entries) {
+  listEl.innerHTML = '';
+  for (const w of [...entries].sort((a, b) => b.at - a.at)) {
     const p = PHENOMENA[w.id];
     if (!p) continue;
     const when = new Date(w.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -3483,8 +3688,24 @@ function renderBook() {
     const li = document.createElement('li');
     li.innerHTML = `<span class="bname">${p.name}<span class="bwhen">${when}</span></span><div class="bdesc">${p.desc}</div>` +
       (replayable ? `<button class="breplay" data-id="${w.id}">watch again</button>` : '');
-    list.appendChild(li);
+    listEl.appendChild(li);
   }
+}
+
+function renderBook() {
+  const entries = witnessed.filter((w) => !EASTER_EGGS.includes(w.id));
+  $('bookIntro').textContent = entries.length
+    ? 'A record of rare things you happened to see.'
+    : 'Nothing recorded yet. The universe is full of rare things — keep watching.';
+  renderBookList($('bookList'), entries);
+}
+
+function renderMovieBook() {
+  const entries = witnessed.filter((w) => EASTER_EGGS.includes(w.id));
+  $('movieBookIntro').textContent = entries.length
+    ? 'Small nods to space films, spotted along the way.'
+    : "Nothing recorded yet. There's more out there than the achievement book covers — keep watching.";
+  renderBookList($('movieBookList'), entries);
 }
 
 $('bookBtn').onclick = () => {
@@ -3493,6 +3714,16 @@ $('bookBtn').onclick = () => {
 };
 $('bookClose').onclick = () => $('bookPanel').classList.remove('show');
 $('bookList').addEventListener('click', (e) => {
+  const btn = e.target.closest('.breplay');
+  if (btn) replayPhenomenon(btn.dataset.id);
+});
+
+$('movieBookBtn').onclick = () => {
+  renderMovieBook();
+  $('movieBookPanel').classList.toggle('show');
+};
+$('movieBookClose').onclick = () => $('movieBookPanel').classList.remove('show');
+$('movieBookList').addEventListener('click', (e) => {
   const btn = e.target.closest('.breplay');
   if (btn) replayPhenomenon(btn.dataset.id);
 });

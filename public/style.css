@@ -367,7 +367,7 @@ body:has(#sidebar:not(.hidden)) #sidebarToggle { left: 242px; }
   /* Free-floating centred bar would otherwise run under the bottom-right
      button column on a narrow screen — anchor it between the edges
      that are actually free instead. */
-  #milestoneBar { left: 12px; right: 154px; transform: none; width: auto; }
+  #milestoneBar { left: 12px; right: 198px; transform: none; width: auto; }
   #milestoneLabel, #structLabel { font-size: 10px; }
 }
 
@@ -384,6 +384,54 @@ body:has(#sidebar:not(.hidden)) #sidebarToggle { left: 242px; }
   font-family: inherit;
   cursor: pointer;
   z-index: 5;
+}
+/* ---- film reel: a separate book just for movie easter eggs ---- */
+#movieBookBtn {
+  position: fixed;
+  bottom: 16px; right: 152px;
+  width: 38px; height: 38px;
+  border-radius: 7px;
+  border: 1px solid rgba(120, 155, 225, 0.2);
+  background: rgba(5, 10, 22, 0.85);
+  color: #9fc0f0;
+  font-size: 16px;
+  font-family: inherit;
+  cursor: pointer;
+  z-index: 5;
+}
+#movieBookPanel {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(0.97);
+  width: min(420px, 88vw);
+  max-height: 78vh;
+  overflow-y: auto;
+  padding: 20px 22px;
+  background: rgba(7, 14, 28, 0.97);
+  border: 1px solid rgba(235, 190, 120, 0.35);
+  border-radius: 11px;
+  z-index: 25;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+}
+#movieBookPanel.show { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+#movieBookPanel h3 { font-size: 15px; color: #f4e4c8; margin-bottom: 8px; }
+#movieBookPanel #movieBookIntro { font-size: 12px; color: #a8926f; margin-bottom: 14px; }
+#movieBookPanel #movieBookList .bname { color: #f0d8a8; }
+#movieBookPanel #movieBookList .breplay {
+  color: #e0c090;
+  background: rgba(225, 180, 120, 0.1);
+  border: 1px solid rgba(225, 180, 120, 0.25);
+}
+#movieBookPanel #movieBookList .breplay:hover { background: rgba(225, 180, 120, 0.2); color: #f8ecd4; }
+#movieBookClose {
+  position: absolute;
+  top: 10px; right: 13px;
+  border: none; background: none;
+  color: #8a7658;
+  font-size: 17px;
+  cursor: pointer;
 }
 #bookPanel {
   position: fixed;
@@ -404,16 +452,20 @@ body:has(#sidebar:not(.hidden)) #sidebarToggle { left: 242px; }
 #bookPanel.show { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
 #bookPanel h3 { font-size: 15px; color: #dce8fa; margin-bottom: 8px; }
 #bookIntro { font-size: 12px; color: #7089b8; margin-bottom: 14px; }
-#bookList { list-style: none; }
-#bookList li {
+/* Shared structural rules for both the achievement book and the film reel
+   list — .bookList is applied to both #bookList and #movieBookList; each
+   panel then layers its own accent colours on top (see #movieBookPanel
+   rules above). */
+.bookList { list-style: none; }
+.bookList li {
   padding: 10px 0;
   border-top: 1px solid rgba(130, 165, 235, 0.1);
 }
-#bookList li:first-child { border-top: none; }
-#bookList .bname { font-size: 13px; font-weight: 600; color: #dcc8f0; }
-#bookList .bwhen { font-size: 10px; color: #4f628a; margin-left: 6px; font-weight: 400; }
-#bookList .bdesc { font-size: 11.5px; color: #9fb4d8; margin-top: 2px; line-height: 1.5; }
-#bookList .breplay {
+.bookList li:first-child { border-top: none; }
+.bookList .bname { font-size: 13px; font-weight: 600; color: #dcc8f0; }
+.bookList .bwhen { font-size: 10px; color: #4f628a; margin-left: 6px; font-weight: 400; }
+.bookList .bdesc { font-size: 11.5px; color: #9fb4d8; margin-top: 2px; line-height: 1.5; }
+.bookList .breplay {
   margin-top: 6px;
   padding: 3px 9px;
   font-size: 10.5px;
@@ -424,7 +476,7 @@ body:has(#sidebar:not(.hidden)) #sidebarToggle { left: 242px; }
   border-radius: 5px;
   cursor: pointer;
 }
-#bookList .breplay:hover { background: rgba(120, 155, 225, 0.2); color: #dce8fa; }
+.bookList .breplay:hover { background: rgba(120, 155, 225, 0.2); color: #dce8fa; }
 #bookClose {
   position: absolute;
   top: 10px; right: 13px;

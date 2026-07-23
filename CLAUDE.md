@@ -43,36 +43,49 @@ universe can "cool" and a new cycle begins from a new seed (`beginNewCycle`)
 
 - **Pace** (`PACES`): Patient/Steady/Eager just change `ENERGY_PER_BLOCK`;
   switching is lossless since everything derives from real token totals.
+- **Two separate books, one shared record.** Both the achievement book
+  (📖) and the film reel (🎬) read from the same `witnessed`/`witnessedIds`
+  localStorage record — there's no second storage key. `renderBook()` shows
+  everything EXCEPT ids in `EASTER_EGGS`; `renderMovieBook()` shows ONLY
+  `EASTER_EGGS` ids; both call the shared `renderBookList(listEl, entries)`.
+  `updateBookButton()` updates both button badges (`#bookBtn`, `#movieBookBtn`)
+  in one pass, filtering the same array — if you add a third book, follow
+  this filter-not-duplicate pattern rather than a new storage key.
 - **Achievement book** (`PHENOMENA`, `witnessPhenomenon`): rare ambient sky
-  events are silently recorded to `localStorage` on first sighting, in four
-  tiers of a single roll ladder in `spawnAmbient` (rarest first): the 12
-  `BIG_PHENOMENA` (supernova, black hole, quasar, GRB, kilonova, rogue
-  planet, nova, pulsar flash, tidal disruption, auroral storm, comet
-  outburst, meteoroid collision), the "twin streak" rarity, `alien-craft`
-  (`spawnAlienCraft` — random small/medium/large size × 4 silhouette
-  styles), and the 12 `EASTER_EGGS` (film tributes, below) — each tier
-  rarer than the last. The book UI (📖 button) never lists undiscovered
-  entries — by design, don't add a "here's everything you can find" list.
-  Every entry except `reborn` (no standalone visual) has a "watch again"
-  button (`replayPhenomenon`, gated by `isReplayable`) that replays its
-  exact animation on demand — it never re-adds an entry or changes the
-  recorded date, since `witnessPhenomenon` already dedupes by id.
-  `spawnBigPhenomenon`/`spawnAlienCraft`/`spawnEasterEgg` all take an
-  optional `force*` arg, and `spawnTwinStreak` is its own function,
-  specifically so replay can call the same code path as the real spawn.
-  Durations and sizes for every book-recorded phenomenon were deliberately
-  tuned up (multiple rounds, per user feedback) well past what a background
-  shooting star/meteor/debris gets — these are meant to be lingered on and
-  clearly visible, not blinked through. `#phenomenonBanner` (the name
-  announcement) sits fixed near the top-centre of the screen, independent
-  of where the animation itself renders.
+  events are silently recorded on first sighting, in four tiers of a single
+  roll ladder in `spawnAmbient` (rarest first): the 12 `BIG_PHENOMENA`
+  (supernova, black hole, quasar, GRB, kilonova, rogue planet, nova, pulsar
+  flash, tidal disruption, auroral storm, comet outburst, meteoroid
+  collision), the "twin streak" rarity, `alien-craft` (`spawnAlienCraft` —
+  random small/medium/large size × 4 silhouette styles), and the 20
+  `EASTER_EGGS` (film tributes, below) — each tier rarer than the last.
+  Neither book UI ever lists undiscovered entries — by design, don't add a
+  "here's everything you can find" list. Every entry except `reborn` (no
+  standalone visual) has a "watch again" button (`replayPhenomenon`, gated
+  by `isReplayable`) that replays its exact animation on demand — it never
+  re-adds an entry or changes the recorded date, since `witnessPhenomenon`
+  already dedupes by id. `spawnBigPhenomenon`/`spawnAlienCraft`/
+  `spawnEasterEgg` all take an optional `force*` arg, and `spawnTwinStreak`
+  is its own function, specifically so replay can call the same code path
+  as the real spawn. Durations and sizes for every book-recorded phenomenon
+  were deliberately tuned up (multiple rounds, per user feedback) well past
+  what a background shooting star/meteor/debris gets — these are meant to
+  be lingered on and clearly visible, not blinked through.
+  `#phenomenonBanner` (the name announcement) sits fixed near the
+  top-centre of the screen, independent of where the animation itself
+  renders.
 - **Film easter eggs** (`EASTER_EGGS`, spawned via `spawnEasterEgg`): the
-  rarest tier in the book — 12 small, hand-drawn nods to famous space films
-  (Interstellar, the ISS, Ad Astra, Project Hail Mary, Gravity, 2001, ID4,
-  Dune, WALL-E, Moon, Star Wars, Alien). Deliberately named with original,
-  non-trademarked phenomenon names (e.g. `gargantua-tribute` → "A Warped
-  Horizon") — the description text winks at the reference, the id/name
-  never claims it outright. If adding more, keep that pattern.
+  rarest tier of all, and the only one with its own book (🎬 Film Reel,
+  separate panel/button, gold accent vs. the achievement book's violet/blue)
+  — 20 small, hand-drawn nods to famous space films: Interstellar, the ISS,
+  Ad Astra, Project Hail Mary, Gravity, 2001, Independence Day, Dune,
+  WALL-E, Moon, Star Trek, The Martian, Arrival, Close Encounters, and five
+  separate Star Wars sightings (a freighter, a Star Destroyer, an X-wing, a
+  TIE pair, and a Death Star — capital ships huge and slow, fighters small
+  and fast, by design). Deliberately named with original, non-trademarked
+  phenomenon names (e.g. `gargantua-tribute` → "A Warped Horizon") — the
+  description text winks at the reference, the id/name never claims it
+  outright. If adding more, keep that pattern.
 - **Personalization**: an optional name composes into the title everywhere
   via `composedTitle()` — never hardcode "Idle Cosmos" elsewhere; call that
   function instead so cycle number / owner name stay in sync.
