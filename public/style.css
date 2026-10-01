@@ -307,6 +307,26 @@ body:has(#sidebar:not(.hidden)) #sidebarToggle { left: 242px; }
 }
 #paceCtl .paceNote { font-size: 10px; color: #4f628a; margin-top: 8px; line-height: 1.5; }
 
+/* ---- view switcher (Atlas / Tesseract) ---- */
+#viewCtl { display: flex; gap: 4px; margin-bottom: 8px; }
+#viewCtl button {
+  flex: 1;
+  padding: 6px 0;
+  border-radius: 5px;
+  border: 1px solid rgba(120, 155, 225, 0.2);
+  background: none;
+  color: #7089b8;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+#viewCtl button:hover { background: rgba(130, 165, 235, 0.08); }
+#viewCtl button.active {
+  background: rgba(130, 165, 235, 0.15);
+  color: #dce8fa;
+  border-color: rgba(130, 165, 235, 0.45);
+}
+
 /* ---- overall structure bar (second row of the bottom bar) ---- */
 #structLabel { font-size: 11px; color: #5a70a0; margin: 8px 0 4px; text-shadow: 0 1px 6px #000; }
 #milestoneBar .track.slim { height: 2.5px; }

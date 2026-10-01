@@ -51,6 +51,20 @@ const PACES = {
 let paceName = localStorage.getItem('pace');
 if (!PACES[paceName]) paceName = 'patient';
 let ENERGY_PER_BLOCK = PACES[paceName].epb;
+// The Tesseract theme (see "Tesseract" section below): a second, parallel
+// construction fed by the SAME lifetime energy as the Atlas, but with its
+// own frozen target — 5x a full Atlas build (47,791 blocks at cycle 1,
+// patient pace) — and its own frozen rate. Both are literal constants,
+// never derived from UNI.total live, so the Tesseract's target can never
+// shift when the Atlas reseeds on a "begin again" cycle.
+const TESSERACT_TOTAL = 239_000;
+// Deliberately much pricier than any Atlas pace (patient is 22,000/block).
+// Tuned, not guessed — re-derived after the geometry got denser (face-grids
+// on every shell, plus 50% more shells), so "the core shells" alone is
+// still 4,560 blocks, and a genuinely heavy existing install (several
+// hundred million lifetime energy) lands comfortably mid-way through it
+// rather than instantly blowing past the whole structural phase.
+const TESSERACT_ENERGY_PER_BLOCK = 150_000;
 // Which universe-cycle this is (see the reset mechanic near the bottom of
 // this file) — declared early so composedTitle() can reference it safely
 // regardless of where in the file it's read from.
@@ -1023,6 +1037,364 @@ function buildSequence(seed) {
 }
 
 // ---------------------------------------------------------------------------
+// Tesseract — a second theme, toggled in via the sidebar. Not a planetary
+// system: an Interstellar-style hypercube, built out of blocks the same way
+// everything else is, but rendered a completely different way (see
+// drawTesseract() below) because it needs to actually rotate, which the
+// Atlas's stamp-once-onto-a-bitmap grid can't do.
+//
+// Geometry: a TRUNK of nested cube "shells" (classic tesseract = two cubes
+// connected corner-to-corner; this generalises that to a longer chain, each
+// shell a little bigger than the last, connected by struts along a 4th
+// axis), which then FORKS into two BRANCHES that drift apart sideways —
+// a corridor of receding cube frames that splits, rather than one straight
+// tunnel. Every corner-to-corner strut also gets a diagonal cross-brace (a
+// second strut to a face-diagonal corner on the next shell, alternating
+// which pair of axes it crosses), for a woven-lattice look instead of a
+// plain ladder of parallel lines.
+//
+// Each visible piece is a SEGMENT (two 4D-ish endpoints), not a single
+// point — drawTesseract() strokes an actual line between them every frame,
+// depth-sorted, instead of stamping disconnected dots. That's what makes it
+// read as connected glowing frames rather than a scattered dust cloud.
+// ---------------------------------------------------------------------------
+
+function cubeVerticesAt(size, center) {
+  const V = [];
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) {
+    V.push({ x: center.x + sx * size, y: center.y + sy * size, z: center.z + sz * size, w: center.w });
+  }
+  return V;
+}
+
+// Two corners are an edge iff they differ along exactly one axis.
+function cubeEdges(V) {
+  const E = [];
+  for (let i = 0; i < V.length; i++) {
+    for (let j = i + 1; j < V.length; j++) {
+      const a = V[i], b = V[j];
+      const diff = (a.x !== b.x ? 1 : 0) + (a.y !== b.y ? 1 : 0) + (a.z !== b.z ? 1 : 0);
+      if (diff === 1) E.push([a, b]);
+    }
+  }
+  return E;
+}
+
+// cubeVerticesAt()'s loop order means vertex index i encodes (sx,sy,sz) as
+// 3 bits: bit2=sx, bit1=sy, bit0=sz. Flipping any 2 of those 3 bits gives
+// the corner diagonally opposite across one face — the face-diagonal
+// partner used for cross-bracing below.
+const FACE_DIAGONAL_MASKS = [0b011, 0b101, 0b110]; // flip (sy,sz) / (sx,sz) / (sx,sy)
+
+const TESS_FRAME_COLORS = ['#eaf6ff', '#cfeeff', '#bfe3ff'];
+const TESS_LATTICE_COLORS = ['#8fd0ff', '#6fb8e8', '#4a90c2'];
+const TESS_LIBRARY_COLORS = ['#f0c988', '#e8b86d', '#d9a35c', '#f6d9a8']; // warm light glimpsed through the grid
+const TESS_SINGULARITY_COLORS = ['#fff6e0', '#ffe9b8', '#ffd98a'];
+
+function pushEdgeSegments(out, a, b, n, rng, colors) {
+  for (let m = 0; m < n; m++) {
+    const f0 = m / n, f1 = (m + 1) / n;
+    out.push({
+      x0: a.x + (b.x - a.x) * f0, y0: a.y + (b.y - a.y) * f0, z0: a.z + (b.z - a.z) * f0, w0: a.w + (b.w - a.w) * f0,
+      x1: a.x + (b.x - a.x) * f1, y1: a.y + (b.y - a.y) * f1, z1: a.z + (b.z - a.z) * f1, w1: a.w + (b.w - a.w) * f1,
+      color: dither(rng, colors),
+    });
+  }
+}
+
+// Deliberately bounded tuning constants, profiled in the browser after
+// writing this (not just assumed) — see the verification notes in this
+// session's summary. "Extremely detailed" is exactly the instinct that
+// would blow a per-frame rotation+depth-sort budget if these crept up
+// unchecked.
+//
+// RSTEP is deliberately SMALL: shells barely grow in raw size as they go
+// deeper, so the apparent shrinking-into-the-distance look comes almost
+// entirely from real perspective division rather than being cancelled out
+// by the shells themselves getting bigger — this is what gives the
+// corridor genuine extreme depth instead of reading as a flared tube of
+// same-looking rings.
+const TESS_SHELLS = 30;          // trunk + each branch's shell count — up from 20 for real "many levels"
+const TESS_BRANCH_AT = 18;       // trunk = shells 0..18; both branches continue 19..29
+const TESS_BLOCKS_PER_EDGE = 22; // segments sampled per main edge/strut
+const TESS_SPACING = 20, TESS_R0 = 16, TESS_RSTEP = 3; // tighter packing — more shells visibly overlapping at once
+const TESS_BRANCH_DRIFT = 16;    // how fast the two branches drift apart sideways per shell
+const TESS_CORE_SHELL_END = Math.floor(TESS_BRANCH_AT * 0.55); // trunk shells 0..this = "core", rest = "outer"
+// Each shell face gets a window-pane grid of internal lines, not just its 4
+// border edges — this is what actually produces a dense woven lattice
+// (shelving/scaffold look) instead of a thin wireframe outline, matching
+// the reference image's density. divs-1 lines per direction per face, 6
+// faces, 2 directions = 12*(divs-1) extra lines per shell.
+const TESS_GRID_DIVS = 5, TESS_GRID_SEG = 4;
+
+function shellSize(k) { return TESS_R0 + k * TESS_RSTEP; }
+function trunkCenter(k) { return { x: 0, y: 0, z: 0, w: (k - (TESS_SHELLS - 1) / 2) * TESS_SPACING }; }
+// Both branch center functions agree with trunkCenter() at k = TESS_BRANCH_AT
+// (the (k - TESS_BRANCH_AT) drift term is 0 there), so the fork is seamless.
+function branchACenter(k) {
+  const d = k - TESS_BRANCH_AT;
+  return { x: d * TESS_BRANCH_DRIFT, y: 0, z: 0, w: (k - (TESS_SHELLS - 1) / 2) * TESS_SPACING };
+}
+function branchBCenter(k) {
+  const d = k - TESS_BRANCH_AT;
+  return { x: -d * TESS_BRANCH_DRIFT, y: d * TESS_BRANCH_DRIFT * 0.65, z: 0, w: (k - (TESS_SHELLS - 1) / 2) * TESS_SPACING };
+}
+
+// Adds the internal window-pane grid across all 6 faces of a cube at
+// `center` with half-size `size`. Unlike cubeVerticesAt()/cubeEdges() (which
+// only need the 8 corners), these interior lines are computed directly from
+// center+size since they don't start/end on a corner.
+function pushFaceGrid(out, center, size, divs, segPerLine, rng, colors) {
+  const AXES = [['x', 'y', 'z'], ['y', 'x', 'z'], ['z', 'x', 'y']]; // [normal, u, v]
+  for (const [normal, u, v] of AXES) {
+    for (const sign of [-1, 1]) {
+      for (let i = 1; i < divs; i++) {
+        const off = -size + (2 * size * i) / divs;
+        // A line running along v, at a fixed u-offset.
+        const a1 = { ...center }, b1 = { ...center };
+        a1[normal] = b1[normal] = center[normal] + sign * size;
+        a1[u] = b1[u] = center[u] + off;
+        a1[v] = center[v] - size; b1[v] = center[v] + size;
+        pushEdgeSegments(out, a1, b1, segPerLine, rng, colors);
+        // A line running along u, at a fixed v-offset.
+        const a2 = { ...center }, b2 = { ...center };
+        a2[normal] = b2[normal] = center[normal] + sign * size;
+        a2[v] = b2[v] = center[v] + off;
+        a2[u] = center[u] - size; b2[u] = center[u] + size;
+        pushEdgeSegments(out, a2, b2, segPerLine, rng, colors);
+      }
+    }
+  }
+}
+
+// Builds one chain of shells (the trunk, or one branch) from kStart to
+// kEnd inclusive, tagging every frame edge + face-grid line into whichever
+// bucket frameCategoryFn(k) names (so the trunk can split into "core"/
+// "outer" while branches each get their own single bucket) and every
+// lattice strut into the shared straight/diagonal buckets. skipFirstFrame
+// is true for branches, since the trunk already drew the shared junction
+// shell at k = kStart — branches only add the strut connecting into it plus
+// their own new shells beyond it.
+function buildChain(kStart, kEnd, centerFn, rng, skipFirstFrame, frameCategoryFn, buckets) {
+  let prevV = null;
+  let diagIdx = 0;
+  for (let k = kStart; k <= kEnd; k++) {
+    const center = centerFn(k);
+    const size = shellSize(k);
+    const V = cubeVerticesAt(size, center);
+    if (!(skipFirstFrame && k === kStart)) {
+      const out = buckets[frameCategoryFn(k)];
+      for (const [a, b] of cubeEdges(V)) pushEdgeSegments(out, a, b, TESS_BLOCKS_PER_EDGE, rng, TESS_FRAME_COLORS);
+      pushFaceGrid(out, center, size, TESS_GRID_DIVS, TESS_GRID_SEG, rng, TESS_FRAME_COLORS);
+    }
+    if (prevV) {
+      for (let i = 0; i < V.length; i++) {
+        pushEdgeSegments(buckets.straightLattice, prevV[i], V[i], TESS_BLOCKS_PER_EDGE, rng, TESS_LATTICE_COLORS);
+        // Cross-brace: also connect to a face-diagonal corner, alternating
+        // which pair of axes crosses shell-to-shell so the braid twists.
+        const mask = FACE_DIAGONAL_MASKS[diagIdx % FACE_DIAGONAL_MASKS.length];
+        pushEdgeSegments(buckets.diagonalLattice, prevV[i], V[i ^ mask], TESS_BLOCKS_PER_EDGE, rng, TESS_LATTICE_COLORS);
+      }
+      diagIdx++;
+    }
+    prevV = V;
+  }
+}
+
+// Fisher-Yates, with the same seeded-RNG discipline as everything else, so
+// it's deterministic (same shuffle every time) rather than actually random.
+// Without this, a category's blocks reveal in strict build order — shell 0
+// fully formed before shell 1 even starts — which is why only ~5 shells
+// were visible at low completion: everything earned so far was spent
+// finishing the first few shells one at a time instead of being spread
+// across all of them. Shuffling makes early progress show up as faint
+// detail across EVERY shell in the category at once, filling in density
+// over time — much closer to how the reference image reads at any zoom
+// level, and a better match for "extremely detailed" from early on.
+function shuffleInPlace(arr, rng) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = (rng() * (i + 1)) | 0;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+function buildTesseractGeometry(seed) {
+  const rng = mulberry32(seed);
+  const buckets = { coreShells: [], outerShells: [], branchA: [], branchB: [], straightLattice: [], diagonalLattice: [] };
+  buildChain(0, TESS_BRANCH_AT, trunkCenter, rng, false, (k) => (k <= TESS_CORE_SHELL_END ? 'coreShells' : 'outerShells'), buckets);
+  buildChain(TESS_BRANCH_AT, TESS_SHELLS - 1, branchACenter, rng, true, () => 'branchA', buckets);
+  buildChain(TESS_BRANCH_AT, TESS_SHELLS - 1, branchBCenter, rng, true, () => 'branchB', buckets);
+  const shuffleRng = mulberry32(seed ^ 0x55_44_33_22);
+  for (const key of Object.keys(buckets)) shuffleInPlace(buckets[key], shuffleRng);
+  return buckets;
+}
+
+// Scattered warm points inside the built cube volumes — "the library": light
+// glimpsed through the grid, evoking the movie's repeating book-lined room,
+// within what pixel-block art at this scale can actually render. A bounded,
+// precomputed set (not regenerated every frame) revealed PROPORTIONALLY
+// across a much larger nominal phase count (see TESS.phases below), so the
+// pacing still reflects hundreds of thousands of blocks worth of energy
+// without ever having to store or sort that many points. Generated in three
+// genuinely separate depth groups (near/mid/far shells), not just an
+// arbitrary split of one array, so "near stacks" really do sit closer to
+// the viewer than "far stacks."
+const TESS_LIBRARY_POINT_COUNT = 6000;
+
+function buildTesseractLibrary(seed) {
+  const rng = mulberry32(seed);
+  const nearShells = [], midShells = [], farShells = [];
+  const nearEnd = Math.floor(TESS_BRANCH_AT * 0.5);
+  for (let k = 0; k <= TESS_BRANCH_AT; k++) {
+    const sh = { size: shellSize(k), center: trunkCenter(k) };
+    (k <= nearEnd ? nearShells : midShells).push(sh);
+  }
+  for (let k = TESS_BRANCH_AT + 1; k < TESS_SHELLS; k++) {
+    farShells.push({ size: shellSize(k), center: branchACenter(k) });
+    farShells.push({ size: shellSize(k), center: branchBCenter(k) });
+  }
+  function genFor(shells, count) {
+    const pts = [];
+    for (let i = 0; i < count; i++) {
+      const sh = shells[(rng() * shells.length) | 0];
+      const r = sh.size * 0.85; // stay inside the frame, not poking through it
+      pts.push({
+        x: sh.center.x + (rng() * 2 - 1) * r,
+        y: sh.center.y + (rng() * 2 - 1) * r,
+        z: sh.center.z + (rng() * 2 - 1) * r,
+        w: sh.center.w,
+        color: dither(rng, TESS_LIBRARY_COLORS),
+      });
+    }
+    return pts;
+  }
+  const per = Math.floor(TESS_LIBRARY_POINT_COUNT / 3);
+  return { near: genFor(nearShells, per), mid: genFor(midShells, per), far: genFor(farShells, TESS_LIBRARY_POINT_COUNT - per * 2) };
+}
+
+// The final core: a small dense glowing cluster beyond the last shell,
+// revealed only once everything else is complete — the corridor's payoff,
+// rather than something that fills in gradually.
+function buildTesseractSingularity(seed) {
+  const rng = mulberry32(seed);
+  const centerW = ((TESS_SHELLS - 1) - (TESS_SHELLS - 1) / 2) * TESS_SPACING + TESS_SPACING * 1.5;
+  const points = [];
+  for (let ring = 0; ring < 7; ring++) {
+    const n = ring === 0 ? 1 : ring * 10;
+    for (let i = 0; i < n; i++) {
+      const ang = (i / n) * Math.PI * 2 + rng() * 0.3;
+      const rad = ring * 3.2;
+      points.push({
+        x: Math.cos(ang) * rad, y: Math.sin(ang) * rad, z: (rng() - 0.5) * ring * 2, w: centerW,
+        color: dither(rng, TESS_SINGULARITY_COLORS),
+      });
+    }
+  }
+  return points;
+}
+
+// Fixed salts in the same mulberry32(BASE_SEED ^ salt) style as everything
+// else (see cycleSeedFor() below) — but computed ONCE at module load, never
+// re-derived per Atlas cycle, since the Tesseract must never reset.
+const TESS_BUCKETS = buildTesseractGeometry(0xC05305 ^ 0x7E55E4AC);
+const TESS_LIB = buildTesseractLibrary(0xC05305 ^ 0x9B2C1E);
+const TESS_SINGULARITY = buildTesseractSingularity(0xC05305 ^ 0x3F7A11);
+
+// The branches drift asymmetrically (branchB picks up a y-offset that
+// branchA never does — see branchACenter()/branchBCenter() above), so the
+// geometry's actual center of mass is NOT at the local origin the rotation
+// in tesseractRotate() spins everything around. Left alone, that off-centre
+// mass orbits the screen's visual centre every frame as it rotates — read
+// as "it keeps drifting out of alignment." This computes the TRUE centroid
+// once and shifts every point so the shape always rotates around its own
+// real middle, regardless of how asymmetric the branches (or anything
+// added later) happen to be — more robust than hand-tuning the branch
+// offsets to cancel out, which would break again the next time the
+// geometry changes.
+function tesseractCentroid() {
+  let sx = 0, sy = 0, sz = 0, sw = 0, n = 0;
+  for (const key of Object.keys(TESS_BUCKETS)) {
+    for (const c of TESS_BUCKETS[key]) {
+      sx += c.x0 + c.x1; sy += c.y0 + c.y1; sz += c.z0 + c.z1; sw += c.w0 + c.w1; n += 2;
+    }
+  }
+  for (const arr of [TESS_LIB.near, TESS_LIB.mid, TESS_LIB.far, TESS_SINGULARITY]) {
+    for (const p of arr) { sx += p.x; sy += p.y; sz += p.z; sw += p.w; n++; }
+  }
+  return { x: sx / n, y: sy / n, z: sz / n, w: sw / n };
+}
+function tesseractRecenter(centroid) {
+  for (const key of Object.keys(TESS_BUCKETS)) {
+    for (const c of TESS_BUCKETS[key]) {
+      c.x0 -= centroid.x; c.y0 -= centroid.y; c.z0 -= centroid.z; c.w0 -= centroid.w;
+      c.x1 -= centroid.x; c.y1 -= centroid.y; c.z1 -= centroid.z; c.w1 -= centroid.w;
+    }
+  }
+  for (const arr of [TESS_LIB.near, TESS_LIB.mid, TESS_LIB.far, TESS_SINGULARITY]) {
+    for (const p of arr) { p.x -= centroid.x; p.y -= centroid.y; p.z -= centroid.z; p.w -= centroid.w; }
+  }
+}
+tesseractRecenter(tesseractCentroid());
+
+// Ten named categories, in build order — up from the original two (and then
+// four), covering genuinely distinct geometry: which shells, which kind of
+// strut, which depth of the library, or the final core. Structural/
+// singularity categories use their real, exact block counts; the library's
+// three categories absorb whatever's left of the frozen 5x-Atlas target
+// between them (see TESSERACT_TOTAL), so the overall pacing is unaffected
+// by how big the structural geometry happens to come out to.
+const TESS = (() => {
+  const structuralCats = [
+    { key: 'coreShells', name: 'the core shells', data: TESS_BUCKETS.coreShells },
+    { key: 'outerShells', name: 'the outer shells', data: TESS_BUCKETS.outerShells },
+    { key: 'branchA', name: 'branch one', data: TESS_BUCKETS.branchA },
+    { key: 'branchB', name: 'branch two', data: TESS_BUCKETS.branchB },
+    { key: 'straightLattice', name: 'the straight lattice', data: TESS_BUCKETS.straightLattice },
+    { key: 'diagonalLattice', name: 'the woven lattice', data: TESS_BUCKETS.diagonalLattice },
+  ];
+  const structuralTotal = structuralCats.reduce((a, c) => a + c.data.length, 0);
+  const singularityCount = TESS_SINGULARITY.length;
+  const libraryNominalTotal = Math.max(3, TESSERACT_TOTAL - structuralTotal - singularityCount);
+  const libPer = Math.floor(libraryNominalTotal / 3);
+  const libraryCats = [
+    { key: 'libNear', name: 'the library: near stacks', data: TESS_LIB.near, nominalCount: libPer },
+    { key: 'libMid', name: 'the library: mid stacks', data: TESS_LIB.mid, nominalCount: libPer },
+    { key: 'libFar', name: 'the library: far stacks', data: TESS_LIB.far, nominalCount: libraryNominalTotal - libPer * 2 },
+  ];
+
+  let acc = 0;
+  const phases = [];
+  const byKey = {};
+  for (const c of structuralCats) {
+    phases.push({ name: c.name, key: c.key, start: acc, count: c.data.length });
+    byKey[c.key] = c.data;
+    acc += c.data.length;
+  }
+  for (const c of libraryCats) {
+    phases.push({ name: c.name, key: c.key, start: acc, count: c.nominalCount });
+    byKey[c.key] = c.data; // the actual (much smaller) stored points; see drawTesseract's proportional reveal
+    acc += c.nominalCount;
+  }
+  phases.push({ name: 'the singularity', key: 'singularity', start: acc, count: singularityCount });
+  byKey.singularity = TESS_SINGULARITY;
+  acc += singularityCount;
+
+  return { byKey, phases, total: acc };
+})();
+
+// An unused point in the shared WB×HB world-block space (see WB/HB above) —
+// arbitrary, chosen well away from every Atlas body, purely so the Tesseract
+// view can reuse the same camera (cam/w2s/pan/zoom) plumbing as Atlas
+// without coordinate collisions. Safe because the two views never draw in
+// the same frame (see the state.view branch in frame() below).
+const TESS_CENTER = { x: 1200, y: 950 };
+// Conservative half-extent bound for camera framing — covers the branches'
+// sideways drift and the outermost shell at any rotation, so the camera
+// never has to jitter-recompute framing every frame just because the shape
+// spins.
+const TESS_VISUAL_R = 320;
+
+// ---------------------------------------------------------------------------
 // Atlas (locations panel) definition — display order, not build order
 // ---------------------------------------------------------------------------
 
@@ -1138,7 +1510,14 @@ const state = {
   collapsed: new Set(),
   focus: null, // { kind: 'home' } or { kind: 'loc', name } — re-applied on resize
   reduceMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  view: 'atlas', // 'atlas' | 'tesseract' — which theme is currently on screen; see setView()
 };
+
+// The Tesseract's own placed-block count, updated every frame in frame()
+// regardless of state.view (see the tessState.placed line near advanceBuilding()
+// below) — parallel to state.placed, kept separate so switching views never
+// mixes up which counter is which.
+const tessState = { placed: 0 };
 
 // Faint background specks so the void is never pure black — procedural and
 // infinite (not limited to the built WB×HB world), so they're still there
@@ -1177,6 +1556,308 @@ function drawSpecks(t, s) {
     }
   }
   ctx.globalAlpha = 1;
+}
+
+// The perspective divide below (wf, zf) is only numerically safe for
+// roughly unit-scale input — as the rotated coordinate approaches the
+// formula's focal constant, the denominator heads to zero and the point
+// shoots toward infinity on screen. Our actual geometry spans hundreds of
+// world units (max observed vertex magnitude ~377), so raw coordinates are
+// normalized down first (divide by TESS_PROJ_NORM), then the projected
+// result is scaled back up to a sensible on-screen size (TESS_PROJ_SCALE).
+// Skipping this was the original bug: individual points stayed small enough
+// to hide it, but connected line segments between a "normal" point and one
+// caught near that blow-up zone stretched across the whole screen as giant
+// wedges. TESS_PROJ_NORM is deliberately set notably BELOW the real max
+// extent (not comfortably above it) — pushing normalized values closer to
+// the formula's focal boundary without crossing it, which is what gives
+// genuinely dramatic near/far size variation ("extreme depth") instead of
+// a flat, barely-foreshortened corridor.
+const TESS_PROJ_NORM = 200;
+const TESS_PROJ_SCALE = 150;
+
+// Rotates a single 4D-ish point in two independent planes (XW, then YZ) and
+// perspective-projects it down to a 2D world position, returning enough to
+// both draw it (wx/wy, further fed through w2s() for the camera transform),
+// depth-sort it (depth), and fog/scale it by distance (zf — see
+// tesseractDepthT() below).
+function tesseractRotate(c, cosXW, sinXW, cosYZ, sinYZ) {
+  const nx = c.x / TESS_PROJ_NORM, ny = c.y / TESS_PROJ_NORM, nz = c.z / TESS_PROJ_NORM, nw = c.w / TESS_PROJ_NORM;
+  // Rotate in the XW plane (a true 4D rotation — this is what makes it a
+  // tesseract and not just a spinning cube), then in the YZ plane.
+  const x1 = nx * cosXW - nw * sinXW;
+  const w1 = nx * sinXW + nw * cosXW;
+  const y1 = ny * cosYZ - nz * sinYZ;
+  const z1 = ny * sinYZ + nz * cosYZ;
+  // Perspective-project 4D -> 3D on w, then 3D -> 2D on z.
+  const wf = 3.2 / (3.2 - w1 * 0.9);
+  const x2 = x1 * wf, y2 = y1 * wf, z2 = z1 * wf;
+  const zf = 4.2 / (4.2 - z2 * 0.7);
+  return {
+    wx: TESS_CENTER.x + x2 * zf * TESS_PROJ_SCALE,
+    wy: TESS_CENTER.y + y2 * zf * TESS_PROJ_SCALE,
+    zf, depth: w1 + z1,
+  };
+}
+
+// Maps a raw zf (roughly 0.5 far .. 2.3 near, given the tuning above) onto a
+// steep 0..1 "nearness" curve — used for both opacity and size, so distant
+// structure fades hard toward the background instead of just getting
+// slightly dimmer. That hard fade-into-darkness IS the depth cue: it reads
+// as an endless corridor swallowed by fog, rather than a bounded shape.
+const TESS_ZF_MIN = 0.55, TESS_ZF_MAX = 2.3;
+function tesseractDepthT(zf) {
+  const t = Math.max(0, Math.min(1, (zf - TESS_ZF_MIN) / (TESS_ZF_MAX - TESS_ZF_MIN)));
+  return t * t; // steep: only things genuinely close to camera stay bright
+}
+
+// Everything is drawn into this smaller offscreen buffer, then blown back up
+// onto the real canvas with smoothing off — the classic pixel-art upscale
+// trick. It's not a cosmetic filter: rendering fewer, bigger pixels is what
+// makes individually-smooth stroked lines read as chunky/blocky like the
+// rest of the app instead of clean vector-CAD lines, AND it's cheaper to
+// rasterize (fewer actual pixels), so it affords the extra segment density
+// elsewhere in this build without costing frame rate.
+const TESS_PIXEL_SCALE = 3;
+let tessBuf = null, tessBufCtx = null;
+function tessBuffer() {
+  const cw = Math.max(1, Math.round(W / TESS_PIXEL_SCALE)), ch = Math.max(1, Math.round(H / TESS_PIXEL_SCALE));
+  if (!tessBuf || tessBuf.width !== cw || tessBuf.height !== ch) {
+    tessBuf = document.createElement('canvas');
+    tessBuf.width = cw; tessBuf.height = ch;
+    tessBufCtx = tessBuf.getContext('2d');
+  }
+  tessBufCtx.clearRect(0, 0, cw, ch);
+  return tessBufCtx;
+}
+
+// The six structural categories, in build order — the only ones where a
+// progress index maps 1:1 onto a real stored block (library/singularity
+// reveal proportionally across a much smaller stored sample, so there's no
+// single discrete "next block" to animate flying in for those — see the
+// TESS object above).
+const STRUCTURAL_KEYS = ['coreShells', 'outerShells', 'branchA', 'branchB', 'straightLattice', 'diagonalLattice'];
+
+// Looks up the actual stored segment for a given structural progress index
+// — the Tesseract's equivalent of blockAt(), but only over the categories
+// where that 1:1 mapping holds.
+function tesseractStructuralBlockAt(index) {
+  for (const key of STRUCTURAL_KEYS) {
+    const phase = TESS.phases.find((p) => p.key === key);
+    if (index < phase.start) continue;
+    const i = index - phase.start;
+    const data = TESS.byKey[key];
+    if (i < data.length) return data[i];
+  }
+  return null;
+}
+
+// Mirrors Atlas's sparks/flashes (advanceBuilding(), SHARD_COLORS) — blocks
+// fly in from outside the structure and flash into place — but adapted for
+// a LIVE, constantly-rotating target: a spark's destination is recomputed
+// every frame from the structure's current rotation, rather than a single
+// fixed world point the way Atlas's blocks (which never move once placed)
+// get to use. lastTarget starts null so a page load doesn't retroactively
+// replay a backlog of everything already earned — only NEW blocks earned
+// from this point on get the fly-in treatment, a few per frame, so a big
+// catch-up still animates in steadily rather than all at once.
+const tessSparkState = { sparks: [], flashes: [], lastTarget: null };
+
+function advanceTesseractSparks(dt, cosXW, sinXW, cosYZ, sinYZ) {
+  const lastPhase = TESS.phases.find((p) => p.key === 'diagonalLattice');
+  const structuralTotal = lastPhase.start + lastPhase.count;
+  const cappedTarget = Math.min(tessState.placed, structuralTotal);
+  if (tessSparkState.lastTarget === null) tessSparkState.lastTarget = cappedTarget;
+
+  const wanted = state.reduceMotion ? 0 : 2;
+  let spawned = 0;
+  while (spawned < wanted && tessSparkState.lastTarget < cappedTarget) {
+    const seg = tesseractStructuralBlockAt(tessSparkState.lastTarget);
+    tessSparkState.lastTarget++;
+    if (!seg) continue;
+    const ang = Math.random() * Math.PI * 2;
+    const dist = Math.max(W, H) * 0.7;
+    tessSparkState.sparks.push({
+      seg,
+      x: W / 2 + Math.cos(ang) * dist,
+      y: H / 2 + Math.sin(ang) * dist,
+      color: SHARD_COLORS[(Math.random() * SHARD_COLORS.length) | 0],
+      trail: [],
+    });
+    spawned++;
+  }
+
+  for (let i = tessSparkState.sparks.length - 1; i >= 0; i--) {
+    const sp = tessSparkState.sparks[i];
+    const seg = sp.seg;
+    const mid = tesseractRotate(
+      { x: (seg.x0 + seg.x1) / 2, y: (seg.y0 + seg.y1) / 2, z: (seg.z0 + seg.z1) / 2, w: (seg.w0 + seg.w1) / 2 },
+      cosXW, sinXW, cosYZ, sinYZ,
+    );
+    const tgt = w2s(mid.wx, mid.wy);
+    sp.trail.unshift({ x: sp.x, y: sp.y });
+    if (sp.trail.length > 7) sp.trail.pop();
+    const ddx = tgt.x - sp.x, ddy = tgt.y - sp.y;
+    const dist = Math.hypot(ddx, ddy);
+    if (dist < 6) {
+      tessSparkState.flashes.push({ x: sp.x, y: sp.y, life: 1 });
+      tessSparkState.sparks.splice(i, 1);
+      continue;
+    }
+    // A bit snappier than Atlas's own sparks — the target itself is
+    // drifting as the structure rotates, so a slower chase would mean
+    // never quite catching up.
+    const step = Math.max(1.4, dist * 0.05) * (dt / 16.7);
+    sp.x += (ddx / dist) * step;
+    sp.y += (ddy / dist) * step;
+  }
+
+  for (let i = tessSparkState.flashes.length - 1; i >= 0; i--) {
+    const f = tessSparkState.flashes[i];
+    f.life -= dt / 450;
+    if (f.life <= 0) tessSparkState.flashes.splice(i, 1);
+  }
+}
+
+// Draws the Tesseract's earned blocks, live, every frame — rotating them
+// before projecting down to the screen. This is why the Tesseract can't
+// reuse the Atlas's "stamp once onto a static bitmap" grid: everything here
+// is recomputed each frame so it can actually spin, rather than being drawn
+// once and left alone.
+//
+// The two rotation speeds are deliberately not a simple ratio (like 1:2 or
+// 2:3) — that makes the combined orientation quasi-periodic, i.e. it never
+// exactly repeats, which is what gives the "always in flux, always a new
+// permutation" feel with no extra animation state needed.
+function drawTesseract(t, s, dt) {
+  const angleXW = state.reduceMotion ? 0.5 : t * 0.026; // 5x slower than the original 0.13 — was too dizzying
+  const angleYZ = state.reduceMotion ? 0.35 : t * 0.018; // 5x slower than the original 0.09
+  const cosXW = Math.cos(angleXW), sinXW = Math.sin(angleXW);
+  const cosYZ = Math.cos(angleYZ), sinYZ = Math.sin(angleYZ);
+  const target = Math.min(tessState.placed, TESS.total);
+  const g = tessBuffer();
+  const PS = TESS_PIXEL_SCALE;
+
+  advanceTesseractSparks(dt, cosXW, sinXW, cosYZ, sinYZ);
+
+  // --- Structural segments: every category up through wherever target has
+  // reached, collected into one list and depth-sorted together (farthest
+  // first) so a later category's woven cross-braces correctly read as in
+  // front of or behind an earlier category's frame, instead of whichever
+  // was simply built first always drawing on top.
+  const structural = [];
+  for (const phase of TESS.phases) {
+    if (!STRUCTURAL_KEYS.includes(phase.key)) continue;
+    if (target <= phase.start) break; // phases are in order; nothing later has started either
+    const data = TESS.byKey[phase.key];
+    const n = Math.min(target - phase.start, data.length);
+    for (let i = 0; i < n; i++) structural.push(data[i]);
+  }
+
+  const projected = structural.map((seg) => {
+    const p0 = tesseractRotate({ x: seg.x0, y: seg.y0, z: seg.z0, w: seg.w0 }, cosXW, sinXW, cosYZ, sinYZ);
+    const p1 = tesseractRotate({ x: seg.x1, y: seg.y1, z: seg.z1, w: seg.w1 }, cosXW, sinXW, cosYZ, sinYZ);
+    return { p0, p1, color: seg.color, depth: p0.depth + p1.depth };
+  });
+  projected.sort((a, b) => a.depth - b.depth); // farthest first
+
+  for (const seg of projected) {
+    const a = w2s(seg.p0.wx, seg.p0.wy), b = w2s(seg.p1.wx, seg.p1.wy);
+    const ax = a.x / PS, ay = a.y / PS, bx = b.x / PS, by = b.y / PS;
+    const bw = g.canvas.width, bh = g.canvas.height;
+    const offL = ax < -4 && bx < -4, offR = ax > bw + 4 && bx > bw + 4;
+    const offT = ay < -4 && by < -4, offB = ay > bh + 4 && by > bh + 4;
+    if (offL || offR || offT || offB) continue;
+    const depthT = tesseractDepthT((seg.p0.zf + seg.p1.zf) / 2);
+    g.globalAlpha = Math.max(0.03, depthT);
+    g.strokeStyle = seg.color;
+    g.lineWidth = Math.max(0.5, (s / PS) * 0.6 * (0.25 + 0.95 * depthT));
+    g.beginPath();
+    g.moveTo(ax, ay);
+    g.lineTo(bx, by);
+    g.stroke();
+  }
+  g.globalAlpha = 1;
+
+  // --- The library: warm light glimpsed through the grid -------------------
+  // Each of the three (near/mid/far) sub-phases fills in once the structural
+  // categories before it are done, proportionally across its own much
+  // larger nominal count (see the TESS object above).
+  const LIBRARY_KEYS = ['libNear', 'libMid', 'libFar'];
+  for (const phase of TESS.phases) {
+    if (!LIBRARY_KEYS.includes(phase.key)) continue;
+    if (target <= phase.start) break;
+    const data = TESS.byKey[phase.key];
+    const frac = Math.min(1, (target - phase.start) / phase.count);
+    const n = Math.min(data.length, Math.floor(data.length * frac));
+    for (let i = 0; i < n; i++) {
+      const c = data[i];
+      const p = tesseractRotate(c, cosXW, sinXW, cosYZ, sinYZ);
+      const sp = w2s(p.wx, p.wy);
+      const spx = sp.x / PS, spy = sp.y / PS;
+      if (spx < -3 || spx > g.canvas.width + 3 || spy < -3 || spy > g.canvas.height + 3) continue;
+      const depthT = tesseractDepthT(p.zf);
+      const sz = Math.max(0.6, (s / PS) * 0.6 * (0.3 + 0.9 * depthT));
+      g.globalAlpha = Math.max(0.02, 0.15 + 0.7 * depthT);
+      g.fillStyle = c.color;
+      g.fillRect(spx - sz / 2, spy - sz / 2, sz, sz);
+    }
+  }
+  g.globalAlpha = 1;
+
+  // --- The singularity: the corridor's payoff, not a gradual fill-in -------
+  const singPhase = TESS.phases[TESS.phases.length - 1];
+  if (target >= singPhase.start) {
+    const data = TESS.byKey.singularity;
+    const singN = Math.min(data.length, target - singPhase.start);
+    const pulse = state.reduceMotion ? 1 : 0.85 + 0.15 * Math.sin(t * 1.4);
+    for (let i = 0; i < singN; i++) {
+      const c = data[i];
+      const p = tesseractRotate(c, cosXW, sinXW, cosYZ, sinYZ);
+      const sp = w2s(p.wx, p.wy);
+      const spx = sp.x / PS, spy = sp.y / PS;
+      if (spx < -3 || spx > g.canvas.width + 3 || spy < -3 || spy > g.canvas.height + 3) continue;
+      const depthT = tesseractDepthT(p.zf);
+      const sz = Math.max(0.6, (s / PS) * 0.8 * pulse * (0.4 + 0.7 * depthT));
+      g.globalAlpha = Math.max(0.1, (0.3 + 0.7 * depthT)) * pulse;
+      g.fillStyle = c.color;
+      g.fillRect(spx - sz / 2, spy - sz / 2, sz, sz);
+    }
+    g.globalAlpha = 1;
+  }
+
+  // --- Flying blocks: new progress arriving, same visual language as
+  // Atlas's sparks/flashes (a shrinking trail behind a bright head, then an
+  // expanding flash on arrival) -------------------------------------------
+  for (const sp of tessSparkState.sparks) {
+    for (let k = 0; k < sp.trail.length; k++) {
+      const px = sp.trail[k].x / PS, py = sp.trail[k].y / PS;
+      g.globalAlpha = 0.35 * (1 - k / sp.trail.length);
+      g.fillStyle = sp.color;
+      const sz = Math.max(0.5, (3 - k * 0.3) / PS * 1.6);
+      g.fillRect(px - sz / 2, py - sz / 2, sz, sz);
+    }
+    const hx = sp.x / PS, hy = sp.y / PS;
+    g.globalAlpha = 0.95;
+    g.fillStyle = sp.color;
+    const hsz = Math.max(0.7, 4 / PS * 1.6);
+    g.fillRect(hx - hsz / 2, hy - hsz / 2, hsz, hsz);
+  }
+  g.globalAlpha = 1;
+  for (const f of tessSparkState.flashes) {
+    const px = f.x / PS, py = f.y / PS;
+    const r = Math.max(1, (3 / PS) * 1.6) * (1.7 - f.life);
+    g.globalAlpha = f.life * 0.6;
+    g.strokeStyle = '#aecdf2';
+    g.lineWidth = Math.max(0.4, 1 / PS);
+    g.strokeRect(px - r, py - r, r * 2, r * 2);
+  }
+  g.globalAlpha = 1;
+
+  // Blit the low-res buffer back onto the real canvas with smoothing off —
+  // this is what turns it chunky/pixelated instead of smooth vector lines.
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(tessBuf, 0, 0, tessBuf.width, tessBuf.height, 0, 0, W, H);
 }
 
 // Which bodies orbit once complete (dist/angle derived from placement).
@@ -1264,6 +1945,17 @@ function targetBlocks() {
   // would instantly unlock the whole universe instead of starting at zero.
   const cycleEnergy = Math.max(0, totalEnergy() - baselineEnergy - cycleStartEnergy);
   return Math.min(UNI.total, Math.floor(cycleEnergy / ENERGY_PER_BLOCK));
+}
+
+// The Tesseract's own progress, from the SAME totalEnergy()/baselineEnergy
+// as targetBlocks() above — both build at once, regardless of which view is
+// on screen. Deliberately does NOT subtract cycleStartEnergy: the Tesseract
+// ignores the Atlas's "begin again" cycle mechanic entirely, since it never
+// resets (see beginNewCycle()'s comment near the bottom of this file).
+function tesseractTargetBlocks() {
+  if (baselineEnergy === null) return 0;
+  const lifetimeEnergy = Math.max(0, totalEnergy() - baselineEnergy);
+  return Math.min(TESSERACT_TOTAL, Math.floor(lifetimeEnergy / TESSERACT_ENERGY_PER_BLOCK));
 }
 
 function structDone(s) { return targetBlocks() >= s.start + (s.count || 0); }
@@ -2624,11 +3316,21 @@ function fitCompleted() {
   flyToCentered(cx, cy, z, false);
 }
 
+// Tesseract equivalent of fitCompleted(): unlike Atlas, there's no live
+// bounding-box scan to do, and unlike Atlas's own "fit everything" framing,
+// this is a fixed 100% zoom by explicit request — standing right inside the
+// structure by default, rather than a distance computed to fit it all in.
+function fitTesseract() {
+  state.focus = { kind: 'tesseract' };
+  flyToCentered(TESS_CENTER.x, TESS_CENTER.y, 1.0, false);
+}
+
 // Re-run whatever the camera was last focused on, at the current window
 // size. Called after a resize settles.
 function reapplyFocus() {
   if (!state.focus) return;
   if (state.focus.kind === 'home') { fitCompleted(); return; }
+  if (state.focus.kind === 'tesseract') { fitTesseract(); return; }
   const st = byName.get(state.focus.name);
   if (!st) return;
   const z = closeUpZoom(st, state.infoPinned);
@@ -2638,7 +3340,7 @@ function reapplyFocus() {
 
 $('zoomIn').onclick = () => zoomAt(W / 2, H / 2, 1.45);
 $('zoomOut').onclick = () => zoomAt(W / 2, H / 2, 1 / 1.45);
-$('zoomReset').onclick = fitCompleted;
+$('zoomReset').onclick = () => (state.view === 'tesseract' ? fitTesseract() : fitCompleted());
 
 let lastTouch = null;
 canvas.addEventListener('touchstart', (e) => { lastTouch = snapshotTouches(e); }, { passive: true });
@@ -2700,8 +3402,12 @@ function connect() {
           }
         } else {
           // Start already framed to whatever's unlocked, sized to this
-          // window — instead of a fixed zoom that might not fit.
-          fitCompleted();
+          // window — instead of a fixed zoom that might not fit. This used
+          // to call fitCompleted() unconditionally, which stomped on
+          // fitTesseract()'s framing the moment real session data loaded —
+          // view-aware now so a page load straight into the Tesseract view
+          // actually stays centred on the Tesseract.
+          if (state.view === 'tesseract') fitTesseract(); else fitCompleted();
           Object.assign(cam, camTarget);
         }
       }
@@ -2726,6 +3432,14 @@ function locationState(s) {
 }
 
 function renderLocations() {
+  // advanceBuilding() keeps placing Atlas blocks in the background
+  // regardless of which view is on screen (by design — see tessState.placed
+  // in frame()), and calls this on every new block. Without this guard it
+  // would silently overwrite the Tesseract's sidebar panel with the Atlas
+  // list any time a background Atlas block completes while viewing
+  // Tesseract. setView('atlas') resets lastAtlasKey and calls this again,
+  // so switching back always gets a fresh render regardless.
+  if (state.view !== 'atlas') return;
   const target = targetBlocks();
   const key = UNI.structures.map((s) => locationState(s)[0]).join('') + [...state.collapsed].join(',');
   if (key === lastAtlasKey) return;
@@ -3308,6 +4022,11 @@ function frame(now) {
   cam.z += (camTarget.z - cam.z) * 0.14;
 
   advanceBuilding(dt);
+  // The Tesseract's own progress — updated every frame regardless of
+  // state.view, so it keeps building even while you're looking at the
+  // Atlas. Direct assignment (not a streamed reveal like advanceBuilding()
+  // above): an MVP simplification, see CLAUDE.md.
+  tessState.placed = tesseractTargetBlocks();
 
   const s = BASE * cam.z;
 
@@ -3320,109 +4039,116 @@ function frame(now) {
 
   drawSpecks(t, s);
 
-  // Orbit paths: tilted ellipses through each begun planet.
-  const target = targetBlocks();
-  const sunS = w2s(SUN.x, SUN.y);
-  ctx.strokeStyle = 'rgba(110, 150, 220, 0.1)';
-  ctx.lineWidth = 1;
-  for (const [name, o] of ORBIT) {
-    if (o.parent) continue;
-    const st = byName.get(name);
-    if (target <= st.start) continue;
-    const rx = o.dist * s, ry = o.dist * o.squash * s;
-    if (rx < 8 || rx > Math.hypot(W, H) * 3) continue;
-    ctx.beginPath();
-    ctx.ellipse(sunS.x, sunS.y, rx, ry, 0, 0, Math.PI * 2);
-    ctx.stroke();
-  }
+  if (state.view === 'atlas') {
+    // Orbit paths: tilted ellipses through each begun planet.
+    const target = targetBlocks();
+    const sunS = w2s(SUN.x, SUN.y);
+    ctx.strokeStyle = 'rgba(110, 150, 220, 0.1)';
+    ctx.lineWidth = 1;
+    for (const [name, o] of ORBIT) {
+      if (o.parent) continue;
+      const st = byName.get(name);
+      if (target <= st.start) continue;
+      const rx = o.dist * s, ry = o.dist * o.squash * s;
+      if (rx < 8 || rx > Math.hypot(W, H) * 3) continue;
+      ctx.beginPath();
+      ctx.ellipse(sunS.x, sunS.y, rx, ry, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
 
-  ctx.imageSmoothingEnabled = false;
-  const vw = W / s, vh = H / s;
-  ctx.drawImage(grid, cam.x - vw / 2, cam.y - vh / 2, vw, vh, 0, 0, W, H);
+    ctx.imageSmoothingEnabled = false;
+    const vw = W / s, vh = H / s;
+    ctx.drawImage(grid, cam.x - vw / 2, cam.y - vh / 2, vw, vh, 0, 0, W, H);
 
-  // Finished bodies ride above the grid, drifting along their orbits.
-  for (const st of UNI.structures) {
-    if (!st.sprited) continue;
-    const pos = posOf(st);
-    const p = w2s(pos.x + st.sprite.ox, pos.y + st.sprite.oy);
-    const wpx = st.sprite.w * s, hpx = st.sprite.h * s;
-    if (p.x > W + 60 || p.y > H + 60 || p.x + wpx < -60 || p.y + hpx < -60) continue;
-    ctx.drawImage(st.sprite.canvas, p.x, p.y, wpx, hpx);
-  }
+    // Finished bodies ride above the grid, drifting along their orbits.
+    for (const st of UNI.structures) {
+      if (!st.sprited) continue;
+      const pos = posOf(st);
+      const p = w2s(pos.x + st.sprite.ox, pos.y + st.sprite.oy);
+      const wpx = st.sprite.w * s, hpx = st.sprite.h * s;
+      if (p.x > W + 60 || p.y > H + 60 || p.x + wpx < -60 || p.y + hpx < -60) continue;
+      ctx.drawImage(st.sprite.canvas, p.x, p.y, wpx, hpx);
+    }
 
-  if (!state.reduceMotion && s > 0.8) {
-    for (const tw of state.twinklers) {
-      const p = w2s(tw.cx, tw.cy);
-      if (p.x < -10 || p.x > W + 10 || p.y < -10 || p.y > H + 10) continue;
-      const a = 0.2 + 0.5 * (0.5 + 0.5 * Math.sin(t * tw.speed + tw.phase));
-      ctx.globalAlpha = a;
-      ctx.fillStyle = tw.color;
-      ctx.fillRect(p.x - 1, p.y - 1, s + 2, s + 2);
+    if (!state.reduceMotion && s > 0.8) {
+      for (const tw of state.twinklers) {
+        const p = w2s(tw.cx, tw.cy);
+        if (p.x < -10 || p.x > W + 10 || p.y < -10 || p.y > H + 10) continue;
+        const a = 0.2 + 0.5 * (0.5 + 0.5 * Math.sin(t * tw.speed + tw.phase));
+        ctx.globalAlpha = a;
+        ctx.fillStyle = tw.color;
+        ctx.fillRect(p.x - 1, p.y - 1, s + 2, s + 2);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    for (let i = state.flashes.length - 1; i >= 0; i--) {
+      const f = state.flashes[i];
+      f.life -= dt / 450;
+      if (f.life <= 0) { state.flashes.splice(i, 1); continue; }
+      const p = w2s(f.x + 0.5, f.y + 0.5);
+      const r = Math.max(3, s) * (1.7 - f.life);
+      ctx.globalAlpha = f.life * 0.5;
+      ctx.strokeStyle = '#aecdf2';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(p.x - r, p.y - r, r * 2, r * 2);
     }
     ctx.globalAlpha = 1;
-  }
 
-  for (let i = state.flashes.length - 1; i >= 0; i--) {
-    const f = state.flashes[i];
-    f.life -= dt / 450;
-    if (f.life <= 0) { state.flashes.splice(i, 1); continue; }
-    const p = w2s(f.x + 0.5, f.y + 0.5);
-    const r = Math.max(3, s) * (1.7 - f.life);
-    ctx.globalAlpha = f.life * 0.5;
-    ctx.strokeStyle = '#aecdf2';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(p.x - r, p.y - r, r * 2, r * 2);
-  }
-  ctx.globalAlpha = 1;
-
-  for (const sp of state.sparks) {
-    for (let k = 0; k < sp.trail.length; k++) {
-      const p = w2s(sp.trail[k].x, sp.trail[k].y);
-      ctx.globalAlpha = 0.35 * (1 - k / sp.trail.length);
+    for (const sp of state.sparks) {
+      for (let k = 0; k < sp.trail.length; k++) {
+        const p = w2s(sp.trail[k].x, sp.trail[k].y);
+        ctx.globalAlpha = 0.35 * (1 - k / sp.trail.length);
+        ctx.fillStyle = sp.color;
+        const sz = 3 - k * 0.3;
+        ctx.fillRect(p.x - sz / 2, p.y - sz / 2, sz, sz);
+      }
+      const p = w2s(sp.x, sp.y);
+      ctx.globalAlpha = 0.95;
       ctx.fillStyle = sp.color;
-      const sz = 3 - k * 0.3;
-      ctx.fillRect(p.x - sz / 2, p.y - sz / 2, sz, sz);
+      ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
     }
-    const p = w2s(sp.x, sp.y);
-    ctx.globalAlpha = 0.95;
-    ctx.fillStyle = sp.color;
-    ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
-  }
-  ctx.globalAlpha = 1;
+    ctx.globalAlpha = 1;
 
-  // Assembly shards: five small boxes converging into the block's cell.
-  for (const a of state.assemblies) {
-    const k = Math.min(1, a.t / a.dur);
-    const ease = 1 - (1 - k) * (1 - k);
-    for (const f of a.frags) {
-      const wx = f.x0 + (a.cx - f.x0) * ease;
-      const wy = f.y0 + (a.cy - f.y0) * ease;
-      const p = w2s(wx, wy);
-      if (p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > H + 20) continue;
-      ctx.globalAlpha = 0.4 + 0.5 * k;
-      ctx.fillStyle = f.color;
-      const sz = Math.max(1.5, s * 0.45) * (1 - k * 0.3);
-      ctx.fillRect(p.x - sz / 2, p.y - sz / 2, sz, sz);
+    // Assembly shards: five small boxes converging into the block's cell.
+    for (const a of state.assemblies) {
+      const k = Math.min(1, a.t / a.dur);
+      const ease = 1 - (1 - k) * (1 - k);
+      for (const f of a.frags) {
+        const wx = f.x0 + (a.cx - f.x0) * ease;
+        const wy = f.y0 + (a.cy - f.y0) * ease;
+        const p = w2s(wx, wy);
+        if (p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > H + 20) continue;
+        ctx.globalAlpha = 0.4 + 0.5 * k;
+        ctx.fillStyle = f.color;
+        const sz = Math.max(1.5, s * 0.45) * (1 - k * 0.3);
+        ctx.fillRect(p.x - sz / 2, p.y - sz / 2, sz, sz);
+      }
     }
-  }
-  ctx.globalAlpha = 1;
+    ctx.globalAlpha = 1;
 
-  drawOrnaments(t, s);
+    drawOrnaments(t, s);
+
+    if (cam.z >= 1.1) {
+      ctx.font = '10px ui-monospace, Menlo, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(150, 178, 220, 0.6)';
+      for (const st of UNI.structures) {
+        if (target <= st.start || st.kind === 'ring' || st.kind === 'field') continue;
+        if (st.kind === 'star' && cam.z < 1.6) continue;
+        const pos = posOf(st);
+        const p = w2s(pos.x, pos.y + st.R + 4);
+        if (p.x < -60 || p.x > W + 60 || p.y < -20 || p.y > H + 20) continue;
+        ctx.fillText(cap(st.name), p.x, p.y + 8);
+      }
+    }
+  } else {
+    drawTesseract(t, s, dt);
+  }
+
+  // Ambient sky phenomena (shooting stars, rare achievements) drift over
+  // either view identically — already theme-independent, screen-space only.
   drawAmbient(now, dt);
-
-  if (cam.z >= 1.1) {
-    ctx.font = '10px ui-monospace, Menlo, monospace';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(150, 178, 220, 0.6)';
-    for (const st of UNI.structures) {
-      if (target <= st.start || st.kind === 'ring' || st.kind === 'field') continue;
-      if (st.kind === 'star' && cam.z < 1.6) continue;
-      const pos = posOf(st);
-      const p = w2s(pos.x, pos.y + st.R + 4);
-      if (p.x < -60 || p.x > W + 60 || p.y < -20 || p.y > H + 20) continue;
-      ctx.fillText(cap(st.name), p.x, p.y + 8);
-    }
-  }
 
   updateHUD();
 }
@@ -3431,9 +4157,21 @@ function frame(now) {
 // HUD
 // ---------------------------------------------------------------------------
 
+// Which of the Tesseract's two MVP phases (shell / interior) a given
+// progress count currently falls in — the Tesseract equivalent of blockAt(),
+// but flat (no per-layer detail yet; see the "interior" phase deferred to a
+// later session).
+function tesseractPhaseAt(target) {
+  for (const ph of TESS.phases) {
+    if (target < ph.start + ph.count) return ph;
+  }
+  return TESS.phases[TESS.phases.length - 1];
+}
+
 function updateHUD() {
   const cur = currentSession();
-  $('blocksVal').textContent = `${state.placed.toLocaleString()} blocks placed`;
+  const placedNow = state.view === 'atlas' ? state.placed : tessState.placed;
+  $('blocksVal').textContent = `${placedNow.toLocaleString()} blocks placed`;
   $('totTok').textContent = fmt(totalTokens());
   $('totEnergy').textContent = fmt(totalEnergy());
   if (cur) {
@@ -3462,29 +4200,52 @@ function updateHUD() {
     $('statusText').textContent = 'Claude is idle — all prompts finished';
   }
 
-  const target = targetBlocks();
-  if (target >= UNI.total) {
-    $('milestoneLabel').textContent = 'the observable universe is complete… for now';
-    $('milestoneFill').style.width = '100%';
-    $('structLabel').textContent = 'every location fully built';
-    $('structFill').style.width = '100%';
-    $('beginAgainBtn').classList.add('show');
-    return;
-  }
-  $('beginAgainBtn').classList.remove('show');
-  const info = blockAt(target);
-  if (info && info.layer) {
-    const { s: st, layer } = info;
-    const len = layer.blocks.length || st.count;
-    const done = target - layer.start;
-    const label = layer.name || st.name;
-    const finishEnergy = (layer.start + len) * ENERGY_PER_BLOCK - totalEnergy();
+  if (state.view === 'atlas') {
+    const target = targetBlocks();
+    if (target >= UNI.total) {
+      $('milestoneLabel').textContent = 'the observable universe is complete… for now';
+      $('milestoneFill').style.width = '100%';
+      $('structLabel').textContent = 'every location fully built';
+      $('structFill').style.width = '100%';
+      $('beginAgainBtn').classList.add('show');
+      return;
+    }
+    $('beginAgainBtn').classList.remove('show');
+    const info = blockAt(target);
+    if (info && info.layer) {
+      const { s: st, layer } = info;
+      const len = layer.blocks.length || st.count;
+      const done = target - layer.start;
+      const label = layer.name || st.name;
+      const finishEnergy = (layer.start + len) * ENERGY_PER_BLOCK - totalEnergy();
+      $('milestoneLabel').textContent =
+        `now forming: ${label} — ${fmt(Math.max(1, finishEnergy))} energy to finish`;
+      $('milestoneFill').style.width = Math.max(3, (done / len) * 100) + '%';
+      // Whole-structure completion (e.g. Earth overall).
+      const pct = ((target - st.start) / st.count) * 100;
+      $('structLabel').textContent = `${cap(st.name)} · ${pct.toFixed(1)}% built`;
+      $('structFill').style.width = Math.max(2, pct) + '%';
+    }
+  } else {
+    // Tesseract never shows "begin again" — it's a one-time, lifetime
+    // construction (see the comment on beginNewCycle() below).
+    $('beginAgainBtn').classList.remove('show');
+    const target = tessState.placed;
+    if (target >= TESS.total) {
+      $('milestoneLabel').textContent = 'the tesseract is fully formed — and still turning';
+      $('milestoneFill').style.width = '100%';
+      $('structLabel').textContent = 'every phase complete';
+      $('structFill').style.width = '100%';
+      return;
+    }
+    const ph = tesseractPhaseAt(target);
+    const done = target - ph.start;
+    const finishEnergy = (ph.start + ph.count) * TESSERACT_ENERGY_PER_BLOCK - totalEnergy();
     $('milestoneLabel').textContent =
-      `now forming: ${label} — ${fmt(Math.max(1, finishEnergy))} energy to finish`;
-    $('milestoneFill').style.width = Math.max(3, (done / len) * 100) + '%';
-    // Whole-structure completion (e.g. Earth overall).
-    const pct = ((target - st.start) / st.count) * 100;
-    $('structLabel').textContent = `${cap(st.name)} · ${pct.toFixed(1)}% built`;
+      `now forming: ${ph.name} — ${fmt(Math.max(1, finishEnergy))} energy to finish`;
+    $('milestoneFill').style.width = Math.max(3, (done / ph.count) * 100) + '%';
+    const pct = (target / TESS.total) * 100;
+    $('structLabel').textContent = `the tesseract · ${pct.toFixed(1)}% built`;
     $('structFill').style.width = Math.max(2, pct) + '%';
   }
 }
@@ -3531,6 +4292,57 @@ for (const b of document.querySelectorAll('#paceCtl button')) {
   b.onclick = () => setPace(b.dataset.pace);
 }
 updatePaceButtons();
+
+// --- View switching: Atlas <-> Tesseract (a pure view swap — both keep
+// building in the background regardless of which one is on screen; see
+// tessState.placed in frame()) ---------------------------------------------
+
+let savedView = localStorage.getItem('view');
+if (savedView !== 'atlas' && savedView !== 'tesseract') savedView = 'atlas';
+state.view = savedView;
+
+function updateViewButtons() {
+  for (const b of document.querySelectorAll('#viewCtl button')) {
+    b.classList.toggle('active', b.dataset.view === state.view);
+  }
+}
+
+function renderTesseractPanel() {
+  const list = $('locationList');
+  list.innerHTML = '';
+  const target = tesseractTargetBlocks();
+  for (const ph of TESS.phases) {
+    const li = document.createElement('li');
+    const done = target >= ph.start + ph.count;
+    const building = !done && target > ph.start;
+    li.className = 'loc ' + (done ? 'done' : building ? 'building' : 'locked');
+    li.textContent = cap(ph.name);
+    list.appendChild(li);
+  }
+}
+
+function setView(name) {
+  if ((name !== 'atlas' && name !== 'tesseract') || name === state.view) return;
+  state.view = name;
+  localStorage.setItem('view', name);
+  updateViewButtons();
+  state.infoPinned = false;
+  hideInfo();
+  if (name === 'atlas') {
+    lastAtlasKey = '';
+    renderLocations();
+    reapplyFocus();
+  } else {
+    renderTesseractPanel();
+    fitTesseract();
+  }
+}
+
+for (const b of document.querySelectorAll('#viewCtl button')) {
+  b.onclick = () => setView(b.dataset.view);
+}
+updateViewButtons();
+if (state.view === 'tesseract') { renderTesseractPanel(); fitTesseract(); }
 
 // --- Personalization: an optional name for this universe -----------------
 
@@ -3737,6 +4549,12 @@ $('movieBookList').addEventListener('click', (e) => {
 // --- only the built structures reset, redrawn from a new seed so the new
 // --- universe looks subtly different.
 
+// IMPORTANT: this must never reference TESS, tessState, TESS_CENTER, or any
+// other Tesseract global. The Tesseract is a one-time, lifetime-only
+// construction (per design) and must NOT reset when the Atlas cools and
+// begins again — it's easy to add a matching reset line here by copy-paste
+// habit, since this function already clears several similarly-named
+// Atlas globals in one block. Don't.
 function beginNewCycle() {
   const oldTitle = composedTitle();
   cycleStartEnergy = totalEnergy();
@@ -3783,7 +4601,12 @@ function flyToActive() {
   state.infoPinned = true;
   showInfo(st);
 }
-$('goToActive').onclick = flyToActive;
+$('goToActive').onclick = () => {
+  // The Tesseract has no per-location navigation yet (MVP has just two flat
+  // phases, not per-layer detail) — recentring is the sensible substitute.
+  if (state.view === 'tesseract') { fitTesseract(); return; }
+  flyToActive();
+};
 
 // --- Formula panel: shows exactly how tokens become energy become blocks ---
 
